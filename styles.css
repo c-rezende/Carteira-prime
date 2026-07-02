@@ -1,34 +1,35 @@
 :root {
   color-scheme: light;
-  /* Paleta "papel-moeda": tons de impressão das cédulas do Real */
-  --bg: #eef0e7;
-  --surface: #fdfdfa;
-  --surface-2: #f3f5eb;
-  --ink: #1d2b22;
-  --muted: #75816f;
-  --line: #dfe3d2;
-  --brand: #0e6f5c;
-  --brand-dark: #0a5244;
-  --brand-soft: #dcebe2;
-  --green: #29a84e;
-  --green-dark: #1d8a3f;
-  --green-soft: #dcf1e0;
-  --red: #ec4a2c;
-  --red-dark: #c93a1f;
-  --red-soft: #fbe3db;
-  --blue: #2c6399;
-  --blue-dark: #214973;
-  --blue-soft: #e0e9f2;
-  --purple: #6a4d9e;
-  --purple-dark: #523a78;
-  --purple-soft: #ebe5f3;
-  --orange: #b07c2a;
-  --hero-ink: #263c2e;
-  --hero-ink-2: #152218;
-  /* Guilloché: anéis de gravura de segurança, dois centros deslocados */
-  --guilloche:
-    repeating-radial-gradient(circle at 12% 135%, transparent 0 7px, rgba(255, 255, 255, .05) 7px 8px),
-    repeating-radial-gradient(circle at 88% -35%, transparent 0 9px, rgba(255, 255, 255, .045) 9px 10px);
+  /* Base off-white neutra + cores vivas (repaginada jul/2026, refs estilo Ecofin) */
+  --bg: #f1f1f5;
+  --surface: #ffffff;
+  --surface-2: #f4f4f8;
+  --ink: #17171f;
+  --muted: #8a8a97;
+  --line: #ececf1;
+  /* Roxo = cor de marca (home, botões, FAB, ativos) */
+  --brand: #6c5ce7;
+  --brand-dark: #5647d6;
+  --brand-soft: #ebe8fd;
+  --green: #12b76a;
+  --green-dark: #0e9457;
+  --green-soft: #daf6ea;
+  --red: #f0453e;
+  --red-dark: #d2322b;
+  --red-soft: #fde3e1;
+  --blue: #2e90fa;
+  --blue-dark: #1f6fd0;
+  --blue-soft: #e1eefd;
+  --purple: #7a5af8;
+  --purple-dark: #6544e0;
+  --purple-soft: #ece7fe;
+  --orange: #f79009;
+  /* Hero da home = roxo de marca (topo/safe-area combinam) */
+  --hero-ink: #6c5ce7;
+  --hero-ink-2: #5647d6;
+  /* Guilloché desligado nesta versão flat (mantém a sintaxe var(--guilloche), gradiente) */
+  --guilloche: linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0));
+  --radius: 24px;
   --shadow: none;
   --safe-top: max(54px, env(safe-area-inset-top));
   --safe-bottom: max(16px, env(safe-area-inset-bottom));
@@ -38,11 +39,17 @@
 html {
   scroll-behavior: smooth;
   scrollbar-width: none;
+  /* Trava o overscroll (sem "faixa branca" ao puxar além do topo/fim) */
+  overscroll-behavior: none;
+  /* O topo (safe area / status bar) fica na cor do hero, não branco */
+  background: var(--hero-ink-2);
+  -webkit-text-size-adjust: 100%;
 }
 html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; display: none; }
 body {
   margin: 0;
   min-height: 100vh;
+  overscroll-behavior: none;
   background: var(--bg);
   color: var(--ink);
   font-family: "Archivo", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -133,7 +140,7 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   justify-content: space-between;
   padding: 26px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   overflow: hidden;
   color: white;
   background:
@@ -175,7 +182,7 @@ h1 {
 
 .balance-card, .entry-panel, .panel, .metric {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
 }
@@ -225,9 +232,8 @@ h1 {
   text-align: center;
   font-size: clamp(3rem, 6vw, 5rem);
   line-height: .95;
-  font-weight: 700;
-  font-stretch: 116%;
-  letter-spacing: -0.015em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .eye-btn {
@@ -311,7 +317,7 @@ h1 {
   text-transform: uppercase;
   letter-spacing: .12em;
 }
-.quick-stat strong { font-weight: 700; font-stretch: 110%; }
+.quick-stat strong { font-weight: 700; }
 
 .content-grid {
   display: grid;
@@ -327,7 +333,7 @@ h1 {
 }
 
 .section-head { margin-bottom: 18px; }
-.section-head h2 { font-size: 1.1rem; }
+.section-head h2 { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em; }
 .section-head.inline {
   display: flex;
   justify-content: space-between;
@@ -348,11 +354,13 @@ input, select {
   width: 100%;
   min-height: 46px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--surface-2);
   color: var(--ink);
   outline: none;
   padding: 0 13px;
+  /* 16px evita o zoom automático do iOS ao focar o campo */
+  font-size: 16px;
 }
 
 input:focus, select:focus {
@@ -387,10 +395,12 @@ input:focus, select:focus {
 }
 
 .primary-btn {
-  min-height: 48px;
+  min-height: 54px;
   border-radius: 999px;
   background: var(--accent);
   color: white;
+  font-weight: 800;
+  letter-spacing: .01em;
 }
 
 .primary-btn:hover { background: var(--accent-dark); }
@@ -478,7 +488,7 @@ input:focus, select:focus {
   min-height: 46px;
   padding: 0 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--surface-2);
   color: var(--ink);
   text-align: left;
@@ -656,11 +666,28 @@ input:focus, select:focus {
 .donut-chart::after {
   content: "";
   position: absolute;
-  inset: 38px;
+  inset: 30px;
   border-radius: 50%;
   background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
 }
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  text-align: center;
+}
+.donut-center small {
+  color: var(--muted);
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.donut-center strong { font-size: .92rem; color: var(--ink); }
 
 .category-legend {
   display: grid;
@@ -669,7 +696,7 @@ input:focus, select:focus {
 
 .legend-item {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-columns: 10px auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   color: #5b6857;
@@ -682,7 +709,14 @@ input:focus, select:focus {
   border-radius: 50%;
 }
 
-.legend-item span {
+.legend-pct {
+  color: var(--ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.4em;
+}
+
+.legend-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -700,7 +734,7 @@ input:focus, select:focus {
 .alert-card {
   min-height: 116px;
   padding: 15px;
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--surface-2);
 }
 
@@ -721,7 +755,7 @@ input:focus, select:focus {
   align-items: center;
   min-height: 92px;
   padding: 13px;
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--surface-2);
 }
 
@@ -1122,7 +1156,7 @@ body.detail-mode .app-shell { padding-top: 0; }
 .entry-card {
   position: relative;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--surface);
 }
 
@@ -1180,7 +1214,6 @@ body.detail-mode .app-shell { padding-top: 0; }
   grid-row: 1;
   text-align: right;
   font-weight: 800;
-  font-stretch: 108%;
 }
 .entry-amount.income { color: var(--green); }
 .entry-amount.expense { color: var(--red); }
@@ -1415,6 +1448,7 @@ body.detail-mode .app-shell { padding-top: 0; }
   width: min(560px, 100%);
   max-height: 88vh;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 20px 20px calc(18px + var(--safe-bottom));
   border-radius: 18px 18px 0 0;
   background: var(--surface);
@@ -1529,8 +1563,8 @@ body.detail-mode .app-shell { padding-top: 0; }
   .transaction-info strong { font-size: .86rem; }
   .form-row, .section-head.inline { grid-template-columns: 1fr; display: grid; align-items: start; }
   .chart-layout { grid-template-columns: 1fr; justify-items: center; }
-  .donut-chart { width: 140px; }
-  .donut-chart::after { inset: 33px; }
+  .donut-chart { width: 150px; }
+  .donut-chart::after { inset: 28px; }
   .category-legend { width: 100%; }
   .filters { width: 100%; display: grid; grid-template-columns: 1fr; }
   .filters select, .filters input { width: 100%; }
@@ -1546,7 +1580,7 @@ body.detail-mode .app-shell { padding-top: 0; }
 h1, h2, .detail-title,
 .detail-summary strong, .metric strong, #chartTotal,
 .cards-summary-value strong, .alert-card strong {
-  font-stretch: 112%;
+  letter-spacing: -0.01em;
   letter-spacing: -0.01em;
 }
 
