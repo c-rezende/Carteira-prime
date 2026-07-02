@@ -131,9 +131,11 @@ App é um **PWA instalável**, para rodar em tela cheia no celular:
 
 **Uso multiusuário (decisão do Carlos, jul/2026)**: sem login e sem sincronização. Cada aparelho tem sua própria carteira (localStorage local). Ele e a esposa cadastram cada um as suas contas no próprio celular — **não é vinculado/compartilhado** por ora. Backup manual pelo card "Seus dados" (Exportar/Importar JSON).
 
-## Editor de categoria / limite (jul/2026)
+## Orçamento / categorias / pendências (jul/2026)
 
-Na seção "Categorias do mês / Limites" da home, o "Editar" abre o `#budgetSheet` (no padrão do app, sem `prompt()`): **Nome** + **Limite mensal** (checkbox "Sem limite" desabilita o campo de valor). Salvar renomeia em todos os lançamentos (`saveCategory`) e grava `state.budgets[nome]`. **"Sem limite" grava `0` explícito** (sobrepõe qualquer limite padrão da categoria); `renderBudgets` lê com `stored !== undefined ? stored : category.budget`. Cada item mostra `gasto de limite · %`; **estouro (`is-over`)** deixa barra e % em vermelho.
+- **Seção "Orçamento" (antes "Limites")**: header com botão **"+ Categoria"** (`#addCategoryBtn`) que abre o `#budgetSheet` em **modo criar** (`openBudgetSheet()` sem nome → título "Nova categoria"). Cria categoria **standalone** (via `addCustomCategory("expense", ...)` + `state.budgets`), aparece na lista mesmo sem lançamento; conforme se gasta nela, enche a barra. Não precisa criar despesa antes.
+- **Editar categoria**: mesmo `#budgetSheet` (Nome + Limite mensal, checkbox "Sem limite"). `saveCategory(oldName, newName, noLimit, limit)` renomeia em todos os lançamentos (se editar) e grava `state.budgets[nome]`. **"Sem limite" grava `0` explícito** (sobrepõe limite padrão); `renderBudgets` lê `stored !== undefined ? stored : category.budget`, filtra `removedCategories` e inclui `customCategories.expense`. Cada item mostra `gasto de limite · %`; **estouro (`is-over`)** = barra e % em vermelho.
+- **Card "Pendência e alertas"** agora é **link para `#/despesas`** e ligado às despesas do mês: **Contas pendentes** = toda despesa com `status !== "P"` (não só as com status truthy — bug antigo corrigido); **Total pago** (verde) = `status === "P"`; **Maior pendência** = maior despesa não paga. (A visão geral de atrasadas continua no card "Contas em atraso".)
 
 ## Próximos passos possíveis
 - Se um dia quiser carteira compartilhada entre os dois aparelhos, aí sim precisaria de sincronização em nuvem (quebra o "sem backend").

@@ -470,6 +470,22 @@ input:focus, select:focus {
 .budget-pct { color: var(--muted); font-weight: 800; }
 .budget-item.is-over .progress span { background: var(--red); }
 .budget-item.is-over .budget-pct { color: var(--red); }
+
+.add-cat-btn {
+  flex: none;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+  font-size: .78rem;
+}
+.add-cat-btn:active { background: var(--accent); color: #fff; }
+
+.alert-card.paid strong { color: var(--green); }
+.alerts-panel { display: block; }
 .recur-hint { margin: -2px 0 0; color: var(--muted); font-size: .74rem; }
 
 .stepper {

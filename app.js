@@ -516,22 +516,23 @@ function renderCategoryChart() {
 
 function renderAlerts() {
   const monthItems = selectedTransactions();
-  const unpaid = monthItems.filter((item) => item.type === "expense" && item.status && item.status !== "P");
+  // Ligado às despesas do mês: pendente = toda despesa não paga; pago = status "P".
+  const unpaid = monthItems.filter((item) => item.type === "expense" && item.status !== "P");
   const paid = monthItems.filter((item) => item.type === "expense" && item.status === "P");
   const pendingValue = unpaid.reduce((sum, item) => sum + Number(item.amount), 0);
   const paidValue = paid.reduce((sum, item) => sum + Number(item.amount), 0);
-  const nextExpense = unpaid.sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+  const nextExpense = [...unpaid].sort((a, b) => Number(b.amount) - Number(a.amount))[0];
 
   $("#alertGrid").innerHTML = `
     <article class="alert-card">
       <span>Contas pendentes</span>
       <strong>${money(pendingValue)}</strong>
-      <small>${unpaid.length} lançamento${unpaid.length === 1 ? "" : "s"} com status em aberto.</small>
+      <small>${unpaid.length} despesa${unpaid.length === 1 ? "" : "s"} não paga${unpaid.length === 1 ? "" : "s"} no mês.</small>
     </article>
-    <article class="alert-card">
+    <article class="alert-card paid">
       <span>Total pago</span>
       <strong>${money(paidValue)}</strong>
-      <small>${paid.length} despesa${paid.length === 1 ? "" : "s"} marcada${paid.length === 1 ? "" : "s"} como paga.</small>
+      <small>${paid.length} despesa${paid.length === 1 ? "" : "s"} paga${paid.length === 1 ? "" : "s"} no mês.</small>
     </article>
     <article class="alert-card">
       <span>Maior pendência</span>
@@ -888,12 +889,16 @@ function groupExpenses(items = selectedTransactions()) {
 
 function renderBudgets() {
   const grouped = new Map(groupExpenses().map((item) => [item.category, item.total]));
+  const removed = new Set(state.removedCategories || []);
   const expenseNames = new Set([
     ...Object.keys(state.budgets || {}),
+    ...(state.customCategories?.expense || []),
     ...state.transactions.filter((item) => item.type === "expense").map((item) => item.category),
   ]);
   const list = $("#budgetList");
-  list.innerHTML = [...expenseNames].sort((a, b) => a.localeCompare(b, "pt-BR")).map((name) => {
+  list.innerHTML = [...expenseNames]
+    .filter((name) => !removed.has(name))
+    .sort((a, b) => a.localeCompare(b, "pt-BR")).map((name) => {
     const category = getCategory(name, "expense");
     const spent = grouped.get(name) || 0;
     const stored = state.budgets?.[name];
@@ -1064,17 +1069,24 @@ function startTransactionEdit(id) {
 }
 
 // Editor de categoria (nome + limite mensal) — sheet no padrão do app.
+// Sem argumento = criar nova categoria; com nome = editar existente.
 function openBudgetSheet(name) {
-  const category = getCategory(name, "expense");
-  const stored = state.budgets?.[name];
-  const budget = stored !== undefined ? stored : (category.budget || 0);
-  $("#budgetOldName").value = name;
-  $("#budgetName").value = name;
-  $("#budgetNoLimit").checked = !(budget > 0);
+  const isNew = !name;
+  $("#budgetSheetTitle").textContent = isNew ? "Nova categoria" : "Editar categoria";
+  $("#budgetOldName").value = name || "";
+  $("#budgetName").value = name || "";
+  let budget = 0;
+  if (!isNew) {
+    const stored = state.budgets?.[name];
+    const category = getCategory(name, "expense");
+    budget = stored !== undefined ? stored : (category.budget || 0);
+  }
+  $("#budgetNoLimit").checked = isNew ? false : !(budget > 0);
   $("#budgetLimit").value = budget > 0 ? budget : "";
   updateBudgetLimitState();
   $("#budgetSheet").hidden = false;
   document.body.classList.add("sheet-open");
+  if (isNew) setTimeout(() => $("#budgetName").focus(), 0);
 }
 
 function closeBudgetSheet() {
@@ -1089,8 +1101,10 @@ function updateBudgetLimitState() {
 }
 
 function saveCategory(oldName, newNameRaw, noLimit, limitRaw) {
-  const clean = (newNameRaw || "").trim() || oldName;
-  if (clean !== oldName) {
+  const clean = (newNameRaw || "").trim();
+  if (!clean) return;
+  if (oldName && clean !== oldName) {
+    // Renomear categoria existente em todos os lançamentos.
     state.transactions.forEach((item) => { if (item.category === oldName) item.category = clean; });
     if (state.customCategories) {
       Object.keys(state.customCategories).forEach((type) => {
@@ -1106,13 +1120,17 @@ function saveCategory(oldName, newNameRaw, noLimit, limitRaw) {
     if (!state.removedCategories.includes(oldName)) state.removedCategories.push(oldName);
     state.removedCategories = state.removedCategories.filter((n) => n !== clean);
     addCustomCategory("expense", clean);
+  } else if (!oldName) {
+    // Criar categoria nova (aparece na lista mesmo sem lançamento ainda).
+    addCustomCategory("expense", clean);
+    if (state.removedCategories) state.removedCategories = state.removedCategories.filter((n) => n !== clean);
   }
   if (!state.budgets) state.budgets = {};
   // 0 = "sem limite" explícito (sobrepõe qualquer limite padrão da categoria).
   state.budgets[clean] = noLimit ? 0 : (Number(limitRaw) || 0);
   saveState();
   render();
-  toast("Categoria atualizada");
+  toast(oldName ? "Categoria atualizada" : "Categoria criada");
 }
 
 function deleteCategory(name) {
@@ -1429,6 +1447,7 @@ function bindEvents() {
     if (remove) deleteCategory(remove.dataset.deleteCategory);
   });
 
+  $("#addCategoryBtn").addEventListener("click", () => openBudgetSheet());
   $("#budgetCloseBtn").addEventListener("click", closeBudgetSheet);
   $("#budgetNoLimit").addEventListener("change", updateBudgetLimitState);
   $("#budgetForm").addEventListener("submit", (event) => {
