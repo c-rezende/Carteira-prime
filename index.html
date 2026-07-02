@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#152218" />
+    <title>Carteira Prime — Finanças pessoais</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Carteira" />
+    <link rel="stylesheet" href="fonts/archivo.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <div class="view" id="homeView">
+        <section class="balance-panel" aria-labelledby="balanceTitle">
+          <div class="balance-copy">
+            <div>
+              <span class="kicker">Principal</span>
+              <h1 id="balanceTitle">Minha vida financeira.</h1>
+            </div>
+            <p>Resumo do mês em uma leitura rápida. Toque em receitas, despesas ou reservas para ver e cadastrar os lançamentos de cada grupo.</p>
+          </div>
+
+          <div class="balance-card">
+            <div class="month-switcher" aria-label="Escolher mês">
+              <button id="prevMonth" type="button" aria-label="Mês anterior" title="Mês anterior">
+                <span aria-hidden="true">‹</span>
+              </button>
+              <strong id="currentMonth"></strong>
+              <button id="nextMonth" type="button" aria-label="Próximo mês" title="Próximo mês">
+                <span aria-hidden="true">›</span>
+              </button>
+            </div>
+            <div class="balance-main">
+              <span class="balance-label">Saldo em conta</span>
+              <strong class="main-balance" id="netBalance">R$ 0,00</strong>
+            </div>
+            <div class="estimated-line">
+              <span class="balance-label">Estimado do mês</span>
+              <strong id="estimatedBalance">R$ 0,00</strong>
+            </div>
+            <div class="quick-stats">
+              <a class="quick-stat income" href="#/receitas">
+                <small>Receitas</small>
+                <strong id="incomeTotal">R$ 0,00</strong>
+              </a>
+              <a class="quick-stat expense" href="#/despesas">
+                <small>Despesas</small>
+                <strong id="expenseTotal">R$ 0,00</strong>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section class="dashboard">
+          <a class="panel overdue-card" id="overdueCard" href="#/atrasadas" aria-labelledby="overdueTitle" hidden>
+            <span class="overdue-icon" aria-hidden="true">!</span>
+            <div class="overdue-info">
+              <h2 id="overdueTitle">Contas em atraso</h2>
+              <small id="overdueCount"></small>
+            </div>
+            <div class="overdue-value">
+              <strong id="overdueTotal">R$ 0,00</strong>
+              <span aria-hidden="true">›</span>
+            </div>
+          </a>
+
+          <a class="panel cards-summary" id="cardsCard" href="#/cartoes" aria-labelledby="cardsTitle">
+            <span class="cards-summary-icon" aria-hidden="true">💳</span>
+            <div class="cards-summary-info">
+              <h2 id="cardsTitle">Cartões de crédito</h2>
+              <small id="cardsCount">Nenhum lançamento no mês.</small>
+            </div>
+            <div class="cards-summary-value">
+              <strong id="cardsTotal">R$ 0,00</strong>
+              <span aria-hidden="true">›</span>
+            </div>
+          </a>
+
+          <a class="panel reserve-card" id="reserveCard" href="#/reservas" aria-labelledby="reserveTitle">
+            <span class="reserve-icon" aria-hidden="true">$</span>
+            <div class="reserve-info">
+              <h2 id="reserveTitle">Reservas</h2>
+              <small id="reserveCount">Nenhuma reserva no mês.</small>
+            </div>
+            <div class="reserve-value">
+              <strong id="reserveTotal">R$ 0,00</strong>
+              <span aria-hidden="true">›</span>
+            </div>
+          </a>
+
+          <div class="metric-grid" aria-label="Resumo financeiro">
+            <article class="metric">
+              <span>Disponível</span>
+              <strong id="availableMetric">R$ 0,00</strong>
+              <small>Depois de gastos e reservas.</small>
+            </article>
+            <article class="metric">
+              <span>Maior categoria</span>
+              <strong id="topCategoryMetric">-</strong>
+              <small id="topCategoryAmount">Sem saídas no mês.</small>
+            </article>
+            <article class="metric">
+              <span>Taxa de reserva</span>
+              <strong id="savingsRateMetric">0%</strong>
+              <small>Quanto das entradas virou reserva.</small>
+            </article>
+          </div>
+
+          <section class="panel insights-panel" aria-labelledby="insightsTitle">
+            <div class="section-head inline">
+              <div>
+                <span class="kicker">Gráficos</span>
+                <h2 id="insightsTitle">Despesas por categoria</h2>
+              </div>
+              <strong id="chartTotal">R$ 0,00</strong>
+            </div>
+            <div class="chart-layout">
+              <div class="donut-chart" id="categoryDonut" aria-hidden="true"></div>
+              <div class="category-legend" id="categoryLegend"></div>
+            </div>
+          </section>
+
+          <section class="panel alerts-panel" aria-labelledby="alertsTitle">
+            <div class="section-head">
+              <span class="kicker">Pendências</span>
+              <h2 id="alertsTitle">Pendência e alertas</h2>
+            </div>
+            <div class="alert-grid" id="alertGrid"></div>
+          </section>
+
+          <section class="panel" aria-labelledby="budgetTitle">
+            <div class="section-head inline">
+              <div>
+                <span class="kicker">Limites</span>
+                <h2 id="budgetTitle">Categorias do mês</h2>
+              </div>
+              <button class="text-btn" id="resetSampleBtn" type="button">Zerar dados</button>
+            </div>
+            <div class="budget-list" id="budgetList"></div>
+          </section>
+
+          <section class="panel" aria-labelledby="transactionsTitle">
+            <div class="section-head inline">
+              <div>
+                <span class="kicker">Movimentos</span>
+                <h2 id="transactionsTitle">Lançamentos</h2>
+              </div>
+              <div class="filters">
+                <select id="typeFilter" aria-label="Filtrar por tipo">
+                  <option value="all">Todos</option>
+                  <option value="income">Entradas</option>
+                  <option value="expense">Saídas</option>
+                  <option value="saving">Reservas</option>
+                </select>
+                <input id="searchInput" type="search" placeholder="Buscar" aria-label="Buscar lançamento" />
+              </div>
+            </div>
+            <div class="transaction-list" id="transactionList"></div>
+          </section>
+
+          <section class="panel" aria-labelledby="backupTitle">
+            <div class="section-head">
+              <span class="kicker">Backup</span>
+              <h2 id="backupTitle">Seus dados</h2>
+            </div>
+            <div class="backup-actions">
+              <button class="ghost-btn" id="exportBtn" type="button">Exportar JSON</button>
+              <label class="ghost-btn file-btn" for="importFile">Importar JSON</label>
+              <input id="importFile" type="file" accept="application/json,.json" />
+            </div>
+          </section>
+        </section>
+      </div>
+
+      <div class="view detail-view" id="detailView" hidden>
+        <header class="detail-hero">
+          <div class="detail-top">
+            <button class="detail-icon-btn" id="detailBack" type="button" aria-label="Voltar para a home">‹</button>
+            <h1 class="detail-title" id="detailTitle">Receitas</h1>
+            <button class="detail-icon-btn" id="detailFilter" type="button" aria-label="Ordenar e filtrar">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4" /></svg>
+            </button>
+          </div>
+          <div class="detail-month" aria-label="Escolher mês">
+            <button id="detailPrevMonth" type="button" aria-label="Mês anterior">‹</button>
+            <strong id="detailMonthLabel"></strong>
+            <button id="detailNextMonth" type="button" aria-label="Próximo mês">›</button>
+          </div>
+        </header>
+
+        <section class="detail-summary-card">
+          <div class="detail-summary">
+            <div class="summary-cell">
+              <svg class="summary-ic" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="10.5" width="14" height="9.5" rx="2.4" />
+                <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+              </svg>
+              <div>
+                <span id="detailPendingLabel">Total pendente</span>
+                <strong id="detailPending">R$ 0,00</strong>
+              </div>
+            </div>
+            <div class="summary-cell">
+              <svg class="summary-ic" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 8.5h16v10a1.6 1.6 0 0 1-1.6 1.5H5.6A1.6 1.6 0 0 1 4 18.5z" />
+                <path d="M4 8.5 6.6 4h10.8L20 8.5" />
+                <path d="M15.5 13.8h2.6" />
+              </svg>
+              <div>
+                <span id="detailPaidLabel">Total recebido</span>
+                <strong id="detailPaid" class="paid-total">R$ 0,00</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="detail-breakdown" id="detailBreakdown" hidden></div>
+        <div class="entry-list" id="detailList"></div>
+      </div>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Navegação do app">
+      <a class="active" id="navHome" href="#/">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3.5 21 11" /><path d="M5.5 9.8V20.5h13V9.8" /></svg>
+        Principal
+      </a>
+      <a href="#transactionsTitle">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12" /><circle cx="4" cy="6" r="1.3" /><circle cx="4" cy="12" r="1.3" /><circle cx="4" cy="18" r="1.3" /></svg>
+        Transações
+      </a>
+      <button class="add-action" id="navAddBtn" type="button" aria-label="Adicionar lançamento">+</button>
+      <a href="#budgetTitle">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V3.5" /><path d="M6 4.5h11.5l-2.6 3.75 2.6 3.75H6" /></svg>
+        Planejamento
+      </a>
+      <a href="#insightsTitle">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
+        Mais
+      </a>
+    </nav>
+
+    <div class="sheet-backdrop" id="entrySheet" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
+        <div class="sheet-head">
+          <h2 id="entryTitle">Nova receita</h2>
+          <button class="sheet-close" id="entryCloseBtn" type="button" aria-label="Fechar">×</button>
+        </div>
+        <form id="transactionForm">
+          <input id="editingId" name="editingId" type="hidden" />
+
+          <label>
+            Descrição
+            <input id="description" name="description" type="text" placeholder="Ex: Mercado, salário, aluguel" required />
+          </label>
+
+          <div class="form-row">
+            <label>
+              Valor
+              <input id="amount" name="amount" type="number" min="0.01" step="0.01" placeholder="0,00" required />
+            </label>
+            <label>
+              Data
+              <input id="date" name="date" type="date" required />
+            </label>
+          </div>
+
+          <div class="picker-field">
+            <span class="field-label">Categoria</span>
+            <button type="button" class="category-trigger" id="categoryTrigger" aria-haspopup="dialog">
+              <span class="category-dot" id="categoryTriggerDot" aria-hidden="true"></span>
+              <span id="categoryTriggerName" class="is-placeholder">Selecione uma categoria</span>
+              <span class="trigger-caret" aria-hidden="true">›</span>
+            </button>
+          </div>
+          <input id="category" name="category" type="hidden" />
+
+          <label>
+            Observação
+            <input id="note" name="note" type="text" placeholder="Opcional" />
+          </label>
+
+          <div class="recur-field">
+            <span class="field-label">Como repete</span>
+            <div class="segmented recur-seg" role="group" aria-label="Repetição do lançamento">
+              <button type="button" data-recur="single" class="active">Única</button>
+              <button type="button" data-recur="fixed">Fixa</button>
+              <button type="button" data-recur="installment">Parcelada</button>
+            </div>
+          </div>
+          <input id="recurrence" name="recurrence" type="hidden" value="single" />
+
+          <div class="inst-field" id="instField" hidden>
+            <span class="field-label">Parcelas</span>
+            <div class="stepper">
+              <button type="button" id="instMinus" aria-label="Menos uma parcela">−</button>
+              <strong id="instCount">12</strong>
+              <span>x</span>
+              <button type="button" id="instPlus" aria-label="Mais uma parcela">+</button>
+            </div>
+          </div>
+
+          <p class="recur-hint" id="recurHint">Lançamento só neste mês.</p>
+
+          <div class="form-actions">
+            <button class="primary-btn" id="submitTransactionBtn" type="submit">Adicionar lançamento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop" id="chooserSheet" hidden>
+      <div class="sheet chooser" role="dialog" aria-modal="true" aria-labelledby="chooserTitle">
+        <div class="sheet-head">
+          <h2 id="chooserTitle">O que você quer lançar?</h2>
+          <button class="sheet-close" id="chooserCloseBtn" type="button" aria-label="Fechar">×</button>
+        </div>
+        <div class="chooser-options">
+          <button type="button" data-new="income"><span class="income-tone">↑</span>Receita</button>
+          <button type="button" data-new="expense"><span class="expense-tone">↓</span>Despesa</button>
+          <button type="button" data-new="saving"><span class="saving-tone">$</span>Reserva</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop" id="sortSheet" hidden>
+      <div class="sheet sort-sheet" role="dialog" aria-modal="true" aria-labelledby="sortSheetTitle">
+        <div class="sheet-head">
+          <h2 id="sortSheetTitle">Ordenar</h2>
+          <button class="sheet-close" id="sortCloseBtn" type="button" aria-label="Fechar">×</button>
+        </div>
+        <div class="sort-options" id="sortOptions"></div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop" id="confirmSheet" hidden>
+      <div class="sheet confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="sheet-head">
+          <h2 id="confirmTitle">Confirmar pagamento?</h2>
+          <button class="sheet-close" id="confirmCloseBtn" type="button" aria-label="Fechar">×</button>
+        </div>
+        <p class="confirm-desc" id="confirmDesc">Confira os dados antes de marcar como pago.</p>
+        <div class="confirm-detail" id="confirmDetail"></div>
+        <div class="form-actions confirm-actions">
+          <button class="primary-btn" id="confirmOkBtn" type="button">Confirmar</button>
+          <button class="secondary-btn" id="confirmCancelBtn" type="button">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop" id="categorySheet" hidden>
+      <div class="sheet category-sheet" role="dialog" aria-modal="true" aria-labelledby="categorySheetTitle">
+        <div class="sheet-head">
+          <h2 id="categorySheetTitle">Escolher categoria</h2>
+          <button class="sheet-close" id="categoryCloseBtn" type="button" aria-label="Fechar">×</button>
+        </div>
+        <form id="newCategoryForm" class="new-category">
+          <input id="newCategoryInput" type="text" placeholder="Nova categoria" autocomplete="off" aria-label="Nome da nova categoria" />
+          <button class="primary-btn new-category-btn" type="submit">Criar</button>
+        </form>
+        <div class="category-options" id="categoryOptions"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="budget-data.js"></script>
+    <script src="app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("sw.js").catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>

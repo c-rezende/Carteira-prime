@@ -1,0 +1,137 @@
+# Carteira Prime
+
+App pessoal de controle financeiro (dashboard de finanças estilo mobile), com dados importados da planilha `Controle-de-orcamento-2026.xlsx`.
+
+## Propósito e restrições (importante)
+
+- **Ferramenta de uso pessoal** do Carlos e da esposa — não é produto para venda.
+- **Custo zero de infraestrutura**: sem backend pago, sem banco online. Tudo estático (HTML/CSS/JS) com `localStorage`.
+- Objetivo final: instalar no celular (PWA) com hospedagem gratuita (ex.: GitHub Pages).
+
+## Stack
+
+- HTML, CSS e JavaScript puro — sem build, sem dependências, sem backend.
+- Persistência via `localStorage` do navegador.
+- Mantido propositalmente simples; evoluções devem preservar essa simplicidade salvo decisão explícita.
+
+## Estrutura
+
+- `index.html` — home + tela de detalhe reutilizável + sheets (formulário e seletor de tipo).
+- `styles.css` — visual, responsividade, temas das telas de detalhe, FAB e bottom-sheets.
+- `app.js` — regras do app: roteamento por hash, cálculos, filtros, edição e persistência.
+- `budget-data.js` — dados importados da planilha 2026 (usados na restauração/seed).
+- `preview.html` — mockup de iPhone 17 (viewport 402×874, moldura + Dynamic Island) que carrega o app num iframe. **É o modo padrão de visualizar o app durante o desenvolvimento** — o foco da ferramenta é exclusivamente mobile.
+
+## Arquitetura de navegação (decisão de design — jul/2026)
+
+Seguindo referência visual estilo Mobills enviada pelo Carlos:
+
+- **Home enxuta**: só resumos agrupados (saldo, receitas/despesas/reservas clicáveis, card de cartões logo abaixo do saldo, métricas, gráfico, pendências, limites, lista geral). **Sem formulário de lançamento na home.**
+- **Hero full-bleed (decisão do Carlos, jul/2026)**: a home não tem header/avatar — o card de saldo escuro encosta no topo e nas laterais (cantos arredondados só embaixo), com o seletor de mês compacto (‹ mês ›, setas coladas) centralizado dentro dele. Ocupa **~45% da altura** (`min-height: 45vh`), com o conteúdo distribuído (`justify-content: space-between`): mês no topo, **Saldo em conta** (grande, bloco `.balance-main`), **Estimado do mês** (bloco `.estimated-line`, fonte light) espaçado dele, e dois quick-stats embaixo: **Receitas** e **Despesas**. O botão de olho (ocultar valores) foi removido. O antigo bloco de atalhos (stories) foi removido.
+- **Reserva virou card na home** (jul/2026): saiu do hero e virou `#reserveCard` (azul) abaixo do card de cartões, leva a `#/reservas`. A ordem no dashboard é: atraso → cartões → reservas → métricas → …
+- **Filtro/ordenação nas telas de detalhe** (jul/2026): ícone no canto superior direito do hero (`#detailFilter`) abre o sheet `#sortSheet` com 4 opções que **reordenam** (não escondem): Não pagos primeiro (padrão), Pagos primeiro, Maior valor, Menor valor. Rótulos "pagos" adaptam por tipo (Recebidos/Reservados). Estado global `detailSort` + `sortComparator`.
+- **Telas dedicadas por tipo** (roteamento por hash, view única `#detailView` tematizada):
+  - `#/receitas` (verde), `#/despesas` (vermelho), `#/reservas` (azul).
+  - Cada tela: header colorido com voltar + mês, **card de resumo flutuante** (cantos arredondados, sobreposto ao header) com "Total pendente" / "Total pago|recebido|reservado" — cada um com ícone de linha (cadeado / carteira); **Total pago sempre em verde** (`--green`), pendente na cor da seção. `status "P"` = pago/recebido.
+  - **Lançamentos como cards separados** (`detailCard` em `app.js`, container `.entry-list`) — um card por item, não mais lista com divisórias. Cada card tem: dot da categoria, descrição/meta, valor, uma **pílula de status** e um **menu ⋯** (Editar/Excluir). Sem as tags antigas de status.
+  - **Pílula de status**: pendente = "Pagar/Receber/Reservar" na cor-soft da seção; paga = "✓ Pago/Recebido/Reservado" verde sólido, e o card inteiro fica esmaecido (`opacity .48`). Clicar alterna via `toggleStatus`.
+  - **Swipe-to-pay** (`bindSwipe`, pointer events): arrastar o card > 40% marca como pago; se já pago, arrastar para o lado oposto reabre como pendente. A camada `.entry-behind` aparece atrás. O menu ⋯ fica fora da área de `overflow:hidden` do swipe (`.entry-swipe`) para não ser cortado.
+- **Formulário em bottom-sheet** (`#entrySheet`), usado para criar e editar. O "+" da bottom-nav abre o sheet do tipo atual (em tela de detalhe) ou um seletor Receita/Despesa/Reserva (`#chooserSheet`) na home.
+- **Seletor de categoria custom** (`#categorySheet`, jul/2026): o campo Categoria é um botão (`#categoryTrigger`, dot colorido + nome + chevron) que abre um bottom-sheet no padrão do app, com input "Nova categoria" + "Criar" no topo e a lista de categorias (dot colorido, selecionada destacada com check). Substituiu o `<select>` nativo, que destoava. Criar uma categoria seleciona-a na hora e persiste em `state.customCategories[type]`. `categoryNames(type)` une `categories[type]` + custom + as usadas em transações, filtrando `state.removedCategories`. O sheet abre por cima do `#entrySheet` sem fechá-lo (cada backdrop fecha só o seu sheet).
+- **Editar/excluir categoria no seletor** (jul/2026): cada linha tem um menu ⋯ que abre, inline na própria linha, as opções "Renomear" e "Excluir" (sem diálogos nativos; inline porque a lista tem scroll e um popover seria cortado). Estados: `categoryMenuName` → `categoryEditingName` (campo de rename) / `categoryDeletingName` (confirmação). Editar (`renameCategoryEverywhere`) renomeia em **todos os lançamentos vinculados** + orçamentos + customizadas, esconde o nome antigo via `state.removedCategories` e garante o novo em `customCategories`. Excluir (`deleteCategoryEverywhere`) pede confirmação inline ("Apagar X e N lançamentos?") e remove a categoria e os lançamentos vinculados. As categorias predefinidas do `const categories` não são apagadas do código — ficam ocultas via `removedCategories`.
+- **Contas em atraso** (jul/2026): card na home **acima** do de cartões (`#overdueCard`), só aparece quando há despesa não paga cujo **dia 15 do mês dela já passou** (`isOverdue`). Leva à rota `#/atrasadas` (tema vermelho) — tela que **cruza todos os meses** (não filtra por mês selecionado, sem seletor de mês), listando as contas atrasadas com pílula "Pagar" e menu ⋯. Marcar como paga tira a conta da lista (e a confirmação de pagamento aparece igual). É um lembrete persistente até quitar.
+- **Cartões de crédito**: card compacto na home (`#cardsCard`, só total + contagem) que leva à rota `#/cartoes` (tema roxo) — tela com totais pendente/pago, detalhamento por cartão (categoria) e lista das contas. O FAB dela cria despesa. Lançamento "de cartão" = despesa cuja categoria contém "cartão" (match sem acento/caixa em `isCardTransaction`).
+- **Foco mobile-only**: layout e decisões de UI pensados para celular (iPhone 17). Validar sempre pelo `preview.html`.
+- **Safe areas do iPhone**: `--safe-top` (mín. 54px, cobre a Dynamic Island) e `--safe-bottom` (mín. 16px, cobre o home indicator) aplicados no header, hero das telas de detalhe, bottom-nav, sheets e toast. Scrollbar sempre oculta (app mobile).
+- **Bottom-nav muda de cor por seção** via `body[data-section]` (`--accent`): verde em receitas, vermelho em despesas, azul em reservas, roxo em cartões. O "+" central é o único botão de adicionar (sem FAB), como na referência.
+- **Sem Exportar/Importar no topo**: backup fica num card "Seus dados" no fim da home.
+- Tipografia reduzida no mobile (saldo 2.4rem, métricas ~1.05rem) seguindo escala da referência Mobills.
+
+## Identidade visual — "Papel-moeda" (jul/2026)
+
+Paleta e linguagem derivadas das cédulas do Real:
+
+- **Fundo**: papel-moeda claro esverdeado (`--bg: #eef0e7`), superfícies quase-brancas quentes, tinta de gravura verde-escura (`--ink: #1d2b22`).
+- **Cores por seção**: marca/home turquesa R$100 (`--brand: #0e6f5c`), receitas verde (`--green: #29a84e`), despesas vermelho-tomate (`--red: #ec4a2c`), reservas azul R$2 (`#2c6399`), cartões violeta R$5 (`#6a4d9e`). Verde/vermelho foram aproximados dos tons das referências do Carlos (mais vivos que o cédula original). Cada cor com variante `-dark` e `-soft`; `body[data-section]` define `--accent/--accent-dark/--accent-soft`.
+- **Tipografia**: Archivo variável (Google Fonts, eixos wdth 62–125 / wght 100–900). Valores em R$ e títulos usam `font-stretch: 112–116%` (numerais "gravados" de cédula); rótulos em caixa-alta miúda espaçada (microimpressão); `tabular-nums` no body inteiro. Fallback gracioso para fonte de sistema se offline.
+- **Assinatura**: guilloché em CSS puro (`--guilloche`: dois `repeating-radial-gradient` com centros deslocados) sobre os heros — card de saldo da home (cédula escura `--hero-ink`), headers das telas de detalhe e brand-mark. O card de saldo ainda tem microlinhas diagonais no `::before`.
+- **Movimento**: só bottom-sheets subindo (`sheet-rise`/`backdrop-fade`); `prefers-reduced-motion` respeitado. `:focus-visible` com outline no accent.
+- As cores das categorias no `app.js` (tons impressos: `#1f7a55`, `#ad3f3f`, etc.) já harmonizam com a paleta — não alterar sem motivo.
+
+## Recorrência de lançamentos (jul/2026)
+
+Ao adicionar (não ao editar), o formulário tem "Como repete": **Única / Fixa / Parcelada** (segmented) + stepper de parcelas.
+
+- **Única**: um lançamento só naquele mês (comportamento antigo).
+- **Fixa / essencial**: perpétua — repete todo mês até apagar. Materializada por `buildOccurrences` (12 meses iniciais) e estendida sob demanda por `ensureHorizon()` conforme o usuário navega para frente (chamada no início de `render()`).
+- **Parcelada**: N meses (stepper `+/−`, 2–60). Cria N ocorrências, uma por mês, com `installmentIndex/installmentTotal`; a meta do card mostra `k/N`. Fixa mostra "Fixa".
+- Cada ocorrência é um registro real em `state.transactions` (não virtual), com `seriesId` e `seriesType`. Assim totais, gráficos, filtros e status por mês funcionam sem lógica extra.
+- **Data futura**: lançar com data de mês seguinte joga o item nesse mês (a view pula para o mês da data no submit).
+- **Editar** com todos os campos liberados (inclusive a recorrência — decisão do Carlos, jul/2026). Se o tipo de recorrência **não muda**, altera esta ocorrência e as **seguintes** (mesmo `seriesId`, `date >= atual`). Se o tipo **muda** (ex.: transformar uma conta em Fixa), refaz a série a partir deste mês (`buildOccurrences`), preservando o histórico passado e o status da ocorrência atual.
+- **Migração automática**: despesas importadas com observação "Despesas essenciais" (mas não "não essenciais") viram contas **fixas** ao carregar (`applyMigrations`), agrupadas por categoria+descrição na mesma série. Roda no load, no reset da planilha e na importação de JSON.
+- **Excluir** uma ocorrência de série apaga esta e as próximas (para a recorrência daí em diante), mantendo o histórico passado. Único apaga só ele.
+- **Pagar/despagar é imediato** (pílula ou swipe) — sem confirmação (`requestPay` só faz `setStatus`). Decisão do Carlos (jul/2026): arrastar pra pagar/despagar não deve pedir box.
+- **Sheet de confirmação genérico** (`#confirmSheet`, no design do app): `openConfirmDialog({ title, desc, detailHTML, confirmLabel, danger, onConfirm })` guarda a ação em `confirmAction`; o botão Confirmar fecha o sheet e roda a ação. Usado para:
+  - **Salvar** (criar/editar): `openSaveConfirm` → `commitSave`. Cancelar mantém o formulário aberto.
+  - **Apagar** (decisão do Carlos, jul/2026): todo delete usa esse popup no app, **nunca `confirm()` nativo**. `deleteTransaction` (título "Apagar lançamento?/parcelas?/conta fixa?" com resumo do item) e `deleteCategory` (com contagem de vinculados) passam `danger: true` → botão "Apagar" vermelho (`.primary-btn.danger`). O seletor de categoria já tinha rename/delete inline próprios.
+  - Obs.: `renameCategory` do card de limites ainda usa `prompt()` nativo (é rename, não delete; a alternativa in-app é o ✎ do seletor de categoria).
+
+## Visual achatado (decisão do Carlos, jul/2026)
+
+Sem drop shadows nos boxes de conteúdo e no botão "+": `--shadow: none` e sombras fixas removidas de heros, cards, breakdown, entry-cards, FAB, bottom-nav. Separação por borda (`--line`) sobre o fundo papel. Mantida só a elevação funcional de overlays: bottom-sheets (`.sheet`) e o popover do menu ⋯ (`.entry-actions-menu`), que ficam sobre outro conteúdo. Anéis inset (hairlines) e o ring de foco não são drop shadows e foram mantidos.
+
+## Como rodar
+
+Basta abrir `index.html` no navegador, ou servir com `python3 -m http.server 8765`.
+
+## Saldo por mês (decisão do Carlos, jul/2026)
+
+Dois saldos, ambos **só com o mês selecionado** (`renderSummary`), sem carregar sobra/déficit para o mês seguinte (cada mês é independente):
+- **Saldo em conta** (número grande, tempo real) = receitas **recebidas** (status `"P"`) − despesas **pagas** (status `"P"`). É o dinheiro real: só conta o que foi marcado. **Casa com o estimado** quando tudo estiver recebido/pago. Marcar receita recebida sobe; marcar despesa paga desce.
+- **Saldo estimado** (linha pequena, light) = **todas** as receitas − **todas** as despesas. Projeção: fecha o mês positivo ou negativo.
+- Reservas ficam **fora** desses dois cálculos (viram card próprio). Pílula/swipe mudam o saldo em conta na hora (recebido/pago).
+- Decisão consciente: sem banco/cartão sincronizado, acumular saldo entre meses daria erro. No futuro, avaliar um "espaço" separado para sobra/déficit — por ora não acumular.
+
+## Convenções
+
+- Interface e textos do app em português (pt-BR).
+- Valores em formato brasileiro (R$ 1.236,98).
+- Status dos lançamentos: `"P"` = pago/recebido; vazio ou outro valor = pendente.
+
+## Preferência de fluxo de trabalho
+
+- O Carlos prefere que as mudanças sejam feitas **direto por código**, sem ficar abrindo a extensão do Chrome a cada passo — verificar no navegador só quando necessário ou quando ele pedir.
+
+## PWA e hospedagem (jul/2026)
+
+App é um **PWA instalável**, para rodar em tela cheia no celular:
+- `manifest.json` (display standalone, ícones, tema `#152218`), `sw.js` (service worker) e ícones `icon-192/512/180.png` (marca "C" no verde papel-moeda, gerados via PIL — script em scratchpad, não versionado).
+- `index.html` tem `<link rel="manifest">`, `apple-touch-icon`, metas `apple-mobile-web-app-*` (status bar `black-translucent`, daí o `viewport-fit=cover` + as safe-areas) e registra o `sw.js` no fim do body.
+- **Service worker = stale-while-revalidate** no app shell: abre instantâneo do cache e atualiza os arquivos em segundo plano; a versão nova vale na **próxima abertura** (às vezes na segunda). Não precisa "bumpar" versão a cada deploy — o SWR já rebusca. `CACHE = "carteira-prime-v1"`.
+- **Dados no `localStorage`** (fora do cache do SW): atualizar o código **nunca apaga** os lançamentos.
+- **Hospedagem**: GitHub Pages (estático). Caminhos são relativos (`./`) para funcionar em subpasta `usuario.github.io/repo/`.
+
+**Uso multiusuário (decisão do Carlos, jul/2026)**: sem login e sem sincronização. Cada aparelho tem sua própria carteira (localStorage local). Ele e a esposa cadastram cada um as suas contas no próprio celular — **não é vinculado/compartilhado** por ora. Backup manual pelo card "Seus dados" (Exportar/Importar JSON).
+
+## Próximos passos possíveis
+
+- Cadastro manual de novas categorias com limite mensal.
+- Se um dia quiser carteira compartilhada entre os dois aparelhos, aí sim precisaria de sincronização em nuvem (quebra o "sem backend").
+
+## Estado atual (01/07/2026)
+
+- Redesenho de navegação implementado (home enxuta + telas por tipo + sheets).
+- Tela de cartões de crédito (`#/cartoes`) e card resumido na home implementados.
+- `preview.html` criado como visualização padrão (mockup iPhone 17).
+- Identidade visual "Papel-moeda" aplicada (paleta cédula, Archivo variável, guilloché) — conferida em screenshot no preview (home, despesas e sheet OK).
+- Ajustes do Carlos após ver o preview: header/avatar removidos, hero full-bleed com mês dentro do card, stories removido e card de cartões promovido para o topo do dashboard — implementados e conferidos no preview.
+- Telas de detalhe reformuladas: resumo flutuante com ícones + Total pago em verde, lançamentos como cards separados, pílula de status Pagar/Pago (toggle), menu ⋯ (Editar/Excluir) e swipe-to-pay. Verde/vermelho aproximados das referências. Conferido no preview (cartões: toggle, menu e swipe OK).
+- Recorrência (Única/Fixa/Parcelada) + confirmação ao pagar + visual achatado (sem sombras) implementados e conferidos no preview: parcelada gera k/N por mês, confirmação abre sheet, agosto mostra 2/3 corretamente.
+- Contas "Despesas essenciais" migradas para fixas automaticamente e edição com recorrência liberada — conferido no preview (essenciais mostram "· Fixa"; editar DARF/MEI abre com Fixa ativa e opções clicáveis).
+- Seletor de categoria custom em bottom-sheet (substituiu o `<select>` nativo) com "Nova categoria" no topo — conferido no preview (abre no padrão, criar "Pets" seleciona e fecha).
+- Editar/excluir por categoria no seletor (inline): editar renomeia em todos os lançamentos vinculados; excluir confirma inline com a contagem. Conferido no preview (Academia→Academia Fit sem sobra; excluir mostrou "e 14 lançamentos").
+- Menu ⋯ por categoria (Renomear/Excluir inline) no lugar dos dois ícones — conferido no preview.
+- Card "Contas em atraso" na home (acima de cartões) + rota `#/atrasadas` cross-month — conferido no preview (115 contas/R$ 23.481,70; pagar tira da lista e cai para 114). Saldo por mês (sem carryover) confirmado como comportamento atual desejado.
+- Confirmação movida do pagar para o salvar: pagar/despagar (pílula/swipe) é imediato; criar/editar abre confirmação. Conferido no preview.
+- Home com dois saldos (em conta = recebido − pago; estimado = tudo − tudo, casam no final), reserva movida para card próprio, filtro/ordenação nas telas de detalhe, card ~45vh sem olho mágico, confirmação de exclusão in-app — conferidos no preview.
+- PWA implementado (manifest + service worker SWR + ícones) para instalar no celular; dados no localStorage, sem login, carteiras por aparelho. SW registra e controla a página (conferido).

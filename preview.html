@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Carteira Prime — Preview iPhone 17</title>
+    <style>
+      :root {
+        --screen-w: 402px;
+        --screen-h: 874px;
+        --bezel: 14px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 0%, #2a3140, #14181f 70%);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        overflow: hidden;
+      }
+
+      .stage {
+        display: grid;
+        gap: 18px;
+        justify-items: center;
+        transform-origin: center;
+      }
+
+      .device {
+        position: relative;
+        width: calc(var(--screen-w) + var(--bezel) * 2);
+        height: calc(var(--screen-h) + var(--bezel) * 2);
+        padding: var(--bezel);
+        border-radius: 62px;
+        background: linear-gradient(160deg, #3a3f47, #16181c 40%, #2c3037);
+        box-shadow:
+          inset 0 0 0 2px rgba(255, 255, 255, .08),
+          0 40px 90px rgba(0, 0, 0, .6);
+      }
+
+      /* Botões laterais */
+      .device::before,
+      .device::after {
+        content: "";
+        position: absolute;
+        border-radius: 4px;
+        background: #1d2025;
+      }
+
+      .device::before { /* volume + ação, lado esquerdo */
+        left: -3px;
+        top: 190px;
+        width: 4px;
+        height: 150px;
+        box-shadow: 0 -70px 0 #1d2025;
+      }
+
+      .device::after { /* power, lado direito */
+        right: -3px;
+        top: 240px;
+        width: 4px;
+        height: 92px;
+      }
+
+      .screen {
+        position: relative;
+        width: var(--screen-w);
+        height: var(--screen-h);
+        border-radius: 48px;
+        overflow: hidden;
+        background: #eef0e7;
+      }
+
+      .screen iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+      }
+
+      .island {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 122px;
+        height: 34px;
+        border-radius: 999px;
+        background: #060607;
+        z-index: 5;
+        pointer-events: none;
+      }
+
+      .home-indicator {
+        position: absolute;
+        bottom: 9px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 140px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, .85);
+        z-index: 5;
+        pointer-events: none;
+        mix-blend-mode: multiply;
+      }
+
+      .caption {
+        color: rgba(255, 255, 255, .55);
+        font-size: 13px;
+        letter-spacing: .04em;
+      }
+
+      .caption strong { color: rgba(255, 255, 255, .85); font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div class="stage" id="stage">
+      <div class="device">
+        <div class="screen">
+          <div class="island" aria-hidden="true"></div>
+          <iframe src="index.html" title="Carteira Prime"></iframe>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+      <p class="caption"><strong>iPhone 17</strong> · 402 × 874</p>
+    </div>
+
+    <script>
+      const stage = document.getElementById("stage");
+      function fit() {
+        const deviceHeight = 874 + 28 + 40; // tela + moldura + legenda
+        const deviceWidth = 402 + 28;
+        const scale = Math.min(1, (innerHeight - 32) / deviceHeight, (innerWidth - 32) / deviceWidth);
+        stage.style.transform = `scale(${scale})`;
+      }
+      addEventListener("resize", fit);
+      fit();
+    </script>
+  </body>
+</html>
