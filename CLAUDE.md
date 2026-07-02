@@ -26,7 +26,7 @@ App pessoal de controle financeiro (dashboard de finanças estilo mobile), com d
 
 Seguindo referência visual estilo Mobills enviada pelo Carlos:
 
-- **Home enxuta**: só resumos agrupados (saldo, receitas/despesas/reservas clicáveis, card de cartões logo abaixo do saldo, métricas, gráfico, pendências, limites, lista geral). **Sem formulário de lançamento na home.**
+- **Home enxuta**: só resumos agrupados (saldo, receitas/despesas clicáveis, card de cartões, card de reservas, "Maior categoria", gráfico, pendências, limites, backup). Removidos (jul/2026, a pedido) os blocos "Disponível" e "Taxa de reserva". Ideia futura do Carlos (NÃO implementar sem pedir): uma categoria de "saldo positivo do ano" acumulando o que sobra por mês. **Sem formulário de lançamento na home** e **sem lista geral de movimentos** (removida jul/2026 — os lançamentos ficam nas telas por tipo). Botão "Principal" da bottom-nav sempre leva ao topo da home (`#navHome` com scroll-to-top, mesmo já estando nela). Obs.: a aba "Transações" da bottom-nav apontava para a lista removida — hoje sem alvo (decidir depois se remove/reaponta).
 - **Hero full-bleed (decisão do Carlos, jul/2026)**: a home não tem header/avatar — o card de saldo escuro encosta no topo e nas laterais (cantos arredondados só embaixo), com o seletor de mês compacto (‹ mês ›, setas coladas) centralizado dentro dele. Ocupa **~45% da altura** (`min-height: 45vh`), com o conteúdo distribuído (`justify-content: space-between`): mês no topo, **Saldo em conta** (grande, bloco `.balance-main`), **Estimado do mês** (bloco `.estimated-line`, fonte light) espaçado dele, e dois quick-stats embaixo: **Receitas** e **Despesas**. O botão de olho (ocultar valores) foi removido. O antigo bloco de atalhos (stories) foi removido.
 - **Reserva virou card na home** (jul/2026): saiu do hero e virou `#reserveCard` (azul) abaixo do card de cartões, leva a `#/reservas`. A ordem no dashboard é: atraso → cartões → reservas → métricas → …
 - **Filtro/ordenação nas telas de detalhe** (jul/2026): ícone no canto superior direito do hero (`#detailFilter`) abre o sheet `#sortSheet` com 4 opções que **reordenam** (não escondem): Não pagos primeiro (padrão), Pagos primeiro, Maior valor, Menor valor. Rótulos "pagos" adaptam por tipo (Recebidos/Reservados). Estado global `detailSort` + `sortComparator`.
@@ -47,9 +47,20 @@ Seguindo referência visual estilo Mobills enviada pelo Carlos:
 - **Sem Exportar/Importar no topo**: backup fica num card "Seus dados" no fim da home.
 - Tipografia reduzida no mobile (saldo 2.4rem, métricas ~1.05rem) seguindo escala da referência Mobills.
 
-## Identidade visual — "Papel-moeda" (jul/2026)
+## Identidade visual — repaginada "off-white vivo" (jul/2026, ATUAL)
 
-Paleta e linguagem derivadas das cédulas do Real:
+Repaginada seguindo referências estilo Ecofin (fintech light, roxo/cores vivas). **Substitui a identidade "papel-moeda"** (guilloché desligado; sem versão dark por ora). Mantém as funções — foi só design.
+
+- **Base off-white neutra** (`--bg #f1f1f5`), cards brancos (`--surface #fff`) com cantos bem arredondados (`--radius: 20px`), flat (sem sombra), separados por hairline `--line`.
+- **Cores vivas**; **roxo = cor de marca** (home, botões, FAB, ativos): `--brand #6c5ce7`. Semânticas vivas: verde `#12b76a` (receitas), vermelho/coral `#f0453e` (despesas), azul `#2e90fa` (reservas), roxo `#7a5af8` (cartões).
+- **Cards do topo em cor cheia**: o hero da home é um card **roxo** (gradiente `--hero-ink`→`--hero-ink-2`, ambos roxo); os heros de detalhe usam a cor viva da seção. `html { background }` = roxo escuro para o topo/safe-area combinar.
+- **Paleta das categorias** (dots + rosca do gráfico) vivas e coerentes: roxo, azul, verde, laranja, coral, rosa, ciano, âmbar — definidas no `getCategory` (fallback) e no `const categories` do `app.js`.
+- **Botões pill 100% arredondados** (999px), primário sólido na cor da seção. Inputs arredondados (12px). Tipografia mantém Archivo.
+- Guilloché neutralizado via `--guilloche: linear-gradient(transparent, transparent)` (mantém a sintaxe sem editar cada uso).
+
+### Identidade anterior — "Papel-moeda" (histórico, jul/2026)
+
+Paleta e linguagem derivadas das cédulas do Real (substituída pela repaginada acima):
 
 - **Fundo**: papel-moeda claro esverdeado (`--bg: #eef0e7`), superfícies quase-brancas quentes, tinta de gravura verde-escura (`--ink: #1d2b22`).
 - **Cores por seção**: marca/home turquesa R$100 (`--brand: #0e6f5c`), receitas verde (`--green: #29a84e`), despesas vermelho-tomate (`--red: #ec4a2c`), reservas azul R$2 (`#2c6399`), cartões violeta R$5 (`#6a4d9e`). Verde/vermelho foram aproximados dos tons das referências do Carlos (mais vivos que o cédula original). Cada cor com variante `-dark` e `-soft`; `body[data-section]` define `--accent/--accent-dark/--accent-soft`.
@@ -79,6 +90,12 @@ Ao adicionar (não ao editar), o formulário tem "Como repete": **Única / Fixa 
 ## Visual achatado (decisão do Carlos, jul/2026)
 
 Sem drop shadows nos boxes de conteúdo e no botão "+": `--shadow: none` e sombras fixas removidas de heros, cards, breakdown, entry-cards, FAB, bottom-nav. Separação por borda (`--line`) sobre o fundo papel. Mantida só a elevação funcional de overlays: bottom-sheets (`.sheet`) e o popover do menu ⋯ (`.entry-actions-menu`), que ficam sobre outro conteúdo. Anéis inset (hairlines) e o ring de foco não são drop shadows e foram mantidos.
+
+## Ajustes mobile / iPhone (jul/2026)
+
+- **Zoom travado**: viewport com `maximum-scale=1, user-scalable=no` + `input, select { font-size: 16px }` (16px evita o zoom automático do iOS ao focar campo). Não pode dar zoom em nada.
+- **Overscroll travado (sem "faixa branca")**: `overscroll-behavior: none` em `html`/`body` e `contain` no `.sheet`. Além disso, `html { background: var(--hero-ink-2) }` (verde escuro do hero) para que a área do topo/safe-area/qualquer bounce apareça na cor do hero, nunca branca.
+- **Gráfico "Despesas por categoria"**: mostra **todas** as categorias (não só top 5). Legenda com **porcentagem na frente** (share do total de despesas do mês) + nome + valor. Rodinha (conic-gradient) com todas as fatias.
 
 ## Como rodar
 
