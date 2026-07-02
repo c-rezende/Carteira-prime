@@ -29,14 +29,10 @@
           </div>
 
           <div class="balance-card">
-            <div class="month-switcher" aria-label="Escolher mês">
-              <button id="prevMonth" type="button" aria-label="Mês anterior" title="Mês anterior">
-                <span aria-hidden="true">‹</span>
-              </button>
+            <button class="month-edge left" id="prevMonth" type="button" aria-label="Mês anterior">‹</button>
+            <button class="month-edge right" id="nextMonth" type="button" aria-label="Próximo mês">›</button>
+            <div class="month-switcher" aria-label="Mês atual">
               <strong id="currentMonth"></strong>
-              <button id="nextMonth" type="button" aria-label="Próximo mês" title="Próximo mês">
-                <span aria-hidden="true">›</span>
-              </button>
             </div>
             <div class="balance-main">
               <span class="balance-label">Saldo em conta</span>
@@ -318,10 +314,7 @@
         </div>
         <p class="confirm-desc" id="confirmDesc">Confira os dados antes de marcar como pago.</p>
         <div class="confirm-detail" id="confirmDetail"></div>
-        <div class="form-actions confirm-actions">
-          <button class="primary-btn" id="confirmOkBtn" type="button">Confirmar</button>
-          <button class="secondary-btn" id="confirmCancelBtn" type="button">Cancelar</button>
-        </div>
+        <div class="form-actions confirm-actions" id="confirmActions"></div>
       </div>
     </div>
 
@@ -336,6 +329,36 @@
           <button class="primary-btn new-category-btn" type="submit">Criar</button>
         </form>
         <div class="category-options" id="categoryOptions"></div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop" id="budgetSheet" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="budgetSheetTitle">
+        <div class="sheet-head">
+          <h2 id="budgetSheetTitle">Editar categoria</h2>
+          <button class="sheet-close" id="budgetCloseBtn" type="button" aria-label="Fechar">×</button>
+        </div>
+        <form id="budgetForm">
+          <input id="budgetOldName" type="hidden" />
+          <label>
+            Nome
+            <input id="budgetName" name="budgetName" type="text" autocomplete="off" required />
+          </label>
+          <div class="recur-field">
+            <span class="field-label">Limite mensal</span>
+            <label class="check-row">
+              <input id="budgetNoLimit" type="checkbox" />
+              <span>Sem limite (não controlar)</span>
+            </label>
+          </div>
+          <div class="inst-field" id="budgetLimitField">
+            <span class="field-label">Valor do limite</span>
+            <input id="budgetLimit" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" />
+          </div>
+          <div class="form-actions">
+            <button class="primary-btn" type="submit">Salvar</button>
+          </div>
+        </form>
       </div>
     </div>
 

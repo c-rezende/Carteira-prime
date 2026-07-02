@@ -166,6 +166,8 @@ function buildOccurrences(base, recurrence, installments) {
 // Contas fixas são "perpétuas": materializa novas ocorrências conforme o usuário navega para frente.
 function ensureHorizon() {
   const targetKey = monthKey(selectedMonth);
+  const ends = state.seriesEnds || {};
+  const skips = state.seriesSkips || {};
   const latest = new Map();
   state.transactions.forEach((item) => {
     if (item.seriesType === "fixed" && item.seriesId) {
@@ -175,15 +177,19 @@ function ensureHorizon() {
   });
   let added = false;
   latest.forEach((template) => {
+    const end = ends[template.seriesId]; // conta fixa apagada "daqui em diante": não recriar >= end
     let next = shiftMonth(template.date, 1);
     while (next.slice(0, 7) <= targetKey) {
-      state.transactions.push({
-        type: template.type, category: template.category, description: template.description,
-        amount: template.amount, note: template.note, date: next, status: "",
-        seriesId: template.seriesId, seriesType: "fixed", id: newId(),
-      });
+      if (end && next >= end) break;
+      if (!skips[`${template.seriesId}|${next.slice(0, 7)}`]) {
+        state.transactions.push({
+          type: template.type, category: template.category, description: template.description,
+          amount: template.amount, note: template.note, date: next, status: "",
+          seriesId: template.seriesId, seriesType: "fixed", id: newId(),
+        });
+        added = true;
+      }
       next = shiftMonth(next, 1);
-      added = true;
     }
   });
   if (added) saveState();
@@ -635,11 +641,11 @@ function requestPay(id) {
   setStatus(id, item.status === "P" ? "" : "P");
 }
 
-// Sheet de confirmação genérico (no design do app) — salvar e apagar.
-let confirmAction = null;
+// Sheet de confirmação genérico (no design do app) — salvar e apagar, 1+ opções.
+let confirmActions = [];
 
-function openConfirmDialog({ title, desc = "", detailHTML = "", confirmLabel = "Confirmar", danger = false, onConfirm }) {
-  confirmAction = onConfirm;
+function openConfirmDialog({ title, desc = "", detailHTML = "", confirmLabel = "Confirmar", danger = false, onConfirm, options }) {
+  confirmActions = options || [{ label: confirmLabel, danger, onConfirm }];
   $("#confirmTitle").textContent = title;
   const descEl = $("#confirmDesc");
   descEl.textContent = desc;
@@ -647,11 +653,17 @@ function openConfirmDialog({ title, desc = "", detailHTML = "", confirmLabel = "
   const detailEl = $("#confirmDetail");
   detailEl.innerHTML = detailHTML;
   detailEl.hidden = !detailHTML;
-  const okBtn = $("#confirmOkBtn");
-  okBtn.textContent = confirmLabel;
-  okBtn.classList.toggle("danger", danger);
+  $("#confirmActions").innerHTML = confirmActions.map((opt, index) =>
+    `<button class="primary-btn${opt.danger ? " danger" : ""}" type="button" data-confirm-action="${index}">${escapeHtml(opt.label)}</button>`,
+  ).join("") + `<button class="secondary-btn" type="button" data-confirm-cancel>Cancelar</button>`;
   $("#confirmSheet").hidden = false;
   document.body.classList.add("sheet-open");
+}
+
+function runConfirmAction(index) {
+  const action = confirmActions[index]?.onConfirm;
+  closeConfirm();
+  if (action) action();
 }
 
 function openSaveConfirm(base, editingId, recurrence, installments) {
@@ -660,20 +672,36 @@ function openSaveConfirm(base, editingId, recurrence, installments) {
   const recurText = recurrence === "fixed" ? "Fixa · todo mês"
     : recurrence === "installment" ? `Parcelada · ${installments}x`
     : "Única";
-  openConfirmDialog({
-    title: editingId ? "Salvar alterações?" : "Confirmar lançamento?",
-    desc: "Confira os dados antes de salvar.",
-    detailHTML: `
-      <strong>${escapeHtml(base.description)}</strong>
-      <span>${escapeHtml(base.category)} · ${date} · ${recurText}</span>
-      <em class="${base.type}">${sign}${format(base.amount)}</em>
-    `,
-    confirmLabel: "Confirmar",
-    onConfirm: () => commitSave({ base, editingId, recurrence, installments }),
-  });
+  const detailHTML = `
+    <strong>${escapeHtml(base.description)}</strong>
+    <span>${escapeHtml(base.category)} · ${date} · ${recurText}</span>
+    <em class="${base.type}">${sign}${format(base.amount)}</em>
+  `;
+  const original = editingId ? state.transactions.find((item) => item.id === editingId) : null;
+  const seriesEdit = original?.seriesId && (original.seriesType || "single") === recurrence;
+  if (seriesEdit) {
+    const isInstallment = original.seriesType === "installment";
+    openConfirmDialog({
+      title: "Salvar alterações",
+      desc: isInstallment ? "Alterar quais parcelas?" : "Alterar quais meses?",
+      detailHTML,
+      options: [
+        { label: "Só esta", onConfirm: () => commitSave({ base, editingId, recurrence, installments, scope: "one" }) },
+        { label: isInstallment ? "Esta e as próximas" : "Desta em diante", onConfirm: () => commitSave({ base, editingId, recurrence, installments, scope: "forward" }) },
+      ],
+    });
+  } else {
+    openConfirmDialog({
+      title: editingId ? "Salvar alterações?" : "Confirmar lançamento?",
+      desc: "Confira os dados antes de salvar.",
+      detailHTML,
+      confirmLabel: "Confirmar",
+      onConfirm: () => commitSave({ base, editingId, recurrence, installments }),
+    });
+  }
 }
 
-function commitSave({ base, editingId, recurrence, installments }) {
+function commitSave({ base, editingId, recurrence, installments, scope = "forward" }) {
   let message;
   if (editingId) {
     const original = state.transactions.find((item) => item.id === editingId);
@@ -682,7 +710,9 @@ function commitSave({ base, editingId, recurrence, installments }) {
       const patch = { category: base.category, description: base.description, amount: base.amount, note: base.note };
       if (original?.seriesId) {
         state.transactions.forEach((item) => {
-          if (item.seriesId === original.seriesId && item.date >= original.date) Object.assign(item, patch);
+          if (item.seriesId !== original.seriesId) return;
+          const match = scope === "one" ? item.id === editingId : item.date >= original.date;
+          if (match) Object.assign(item, patch);
         });
       } else if (original) {
         Object.assign(original, patch, { date: base.date });
@@ -716,7 +746,7 @@ function commitSave({ base, editingId, recurrence, installments }) {
 
 function closeConfirm() {
   $("#confirmSheet").hidden = true;
-  confirmAction = null;
+  confirmActions = [];
   // Mantém o body travado se ainda houver o formulário/seletor aberto por baixo.
   if ($("#entrySheet").hidden && $("#categorySheet").hidden) document.body.classList.remove("sheet-open");
 }
@@ -866,10 +896,13 @@ function renderBudgets() {
   list.innerHTML = [...expenseNames].sort((a, b) => a.localeCompare(b, "pt-BR")).map((name) => {
     const category = getCategory(name, "expense");
     const spent = grouped.get(name) || 0;
-    const budget = state.budgets?.[name] || category.budget || 0;
+    const stored = state.budgets?.[name];
+    const budget = stored !== undefined ? stored : (category.budget || 0);
     const progress = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+    const pct = budget > 0 ? Math.round((spent / budget) * 100) : null;
+    const over = budget > 0 && spent > budget;
     return `
-      <article class="budget-item" style="--tone:${category.color}; --tint:${category.tint}; --progress:${progress}%">
+      <article class="budget-item${over ? " is-over" : ""}" style="--tone:${category.color}; --tint:${category.tint}; --progress:${progress}%">
         <span class="category-dot" aria-hidden="true">${category.icon}</span>
         <div class="budget-main">
           <strong>${escapeHtml(category.name)}</strong>
@@ -877,7 +910,7 @@ function renderBudgets() {
         </div>
         <div class="budget-values">
           <strong>${money(spent)}</strong>
-          <span>${budget > 0 ? `de ${money(budget)}` : "sem limite"}</span>
+          <span>${budget > 0 ? `de ${money(budget)}` : "sem limite"}${pct !== null ? ` · <b class="budget-pct">${pct}%</b>` : ""}</span>
         </div>
         <div class="item-actions">
           <button class="edit-btn" type="button" data-edit-category="${escapeHtml(category.name)}" aria-label="Editar categoria ${escapeHtml(category.name)}">Editar</button>
@@ -1030,18 +1063,53 @@ function startTransactionEdit(id) {
   openEntrySheet(item.type, item);
 }
 
-function renameCategory(oldName) {
-  const nextName = prompt("Novo nome da categoria:", oldName);
-  if (!nextName) return;
-  const cleanName = nextName.trim();
-  if (!cleanName || cleanName === oldName) return;
-  state.transactions.forEach((item) => {
-    if (item.category === oldName) item.category = cleanName;
-  });
-  if (state.budgets?.[oldName] !== undefined) {
-    state.budgets[cleanName] = state.budgets[oldName];
-    delete state.budgets[oldName];
+// Editor de categoria (nome + limite mensal) — sheet no padrão do app.
+function openBudgetSheet(name) {
+  const category = getCategory(name, "expense");
+  const stored = state.budgets?.[name];
+  const budget = stored !== undefined ? stored : (category.budget || 0);
+  $("#budgetOldName").value = name;
+  $("#budgetName").value = name;
+  $("#budgetNoLimit").checked = !(budget > 0);
+  $("#budgetLimit").value = budget > 0 ? budget : "";
+  updateBudgetLimitState();
+  $("#budgetSheet").hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closeBudgetSheet() {
+  $("#budgetSheet").hidden = true;
+  document.body.classList.remove("sheet-open");
+}
+
+function updateBudgetLimitState() {
+  const noLimit = $("#budgetNoLimit").checked;
+  $("#budgetLimit").disabled = noLimit;
+  $("#budgetLimit").closest(".inst-field").classList.toggle("is-disabled", noLimit);
+}
+
+function saveCategory(oldName, newNameRaw, noLimit, limitRaw) {
+  const clean = (newNameRaw || "").trim() || oldName;
+  if (clean !== oldName) {
+    state.transactions.forEach((item) => { if (item.category === oldName) item.category = clean; });
+    if (state.customCategories) {
+      Object.keys(state.customCategories).forEach((type) => {
+        const index = state.customCategories[type].indexOf(oldName);
+        if (index >= 0) state.customCategories[type][index] = clean;
+      });
+    }
+    if (state.budgets?.[oldName] !== undefined) {
+      state.budgets[clean] = state.budgets[oldName];
+      delete state.budgets[oldName];
+    }
+    if (!state.removedCategories) state.removedCategories = [];
+    if (!state.removedCategories.includes(oldName)) state.removedCategories.push(oldName);
+    state.removedCategories = state.removedCategories.filter((n) => n !== clean);
+    addCustomCategory("expense", clean);
   }
+  if (!state.budgets) state.budgets = {};
+  // 0 = "sem limite" explícito (sobrepõe qualquer limite padrão da categoria).
+  state.budgets[clean] = noLimit ? 0 : (Number(limitRaw) || 0);
   saveState();
   render();
   toast("Categoria atualizada");
@@ -1076,21 +1144,16 @@ function deleteTransaction(id) {
     <span>${escapeHtml(item.category)} · ${date}</span>
     <em class="${item.type}">${sign}${format(item.amount)}</em>
   `;
-  const remove = (predicate, message) => () => {
-    state.transactions = state.transactions.filter(predicate);
-    saveState();
-    render();
-    toast(message);
-  };
   if (item.seriesId) {
     const isInstallment = item.seriesType === "installment";
     openConfirmDialog({
-      title: isInstallment ? "Apagar parcelas?" : "Apagar conta fixa?",
-      desc: isInstallment ? "Remove esta e as próximas parcelas." : "Remove esta conta e os próximos meses.",
+      title: isInstallment ? "Apagar parcela" : "Apagar conta fixa",
+      desc: isInstallment ? "Apagar quais parcelas?" : "Apagar quais meses?",
       detailHTML,
-      confirmLabel: "Apagar",
-      danger: true,
-      onConfirm: remove((t) => !(t.seriesId === item.seriesId && t.date >= item.date), "Lançamentos removidos"),
+      options: [
+        { label: "Só esta", danger: true, onConfirm: () => deleteSeriesOccurrence(item, "one") },
+        { label: isInstallment ? "Esta e as próximas" : "Desta em diante", danger: true, onConfirm: () => deleteSeriesOccurrence(item, "forward") },
+      ],
     });
   } else {
     openConfirmDialog({
@@ -1099,9 +1162,34 @@ function deleteTransaction(id) {
       detailHTML,
       confirmLabel: "Apagar",
       danger: true,
-      onConfirm: remove((t) => t.id !== id, "Lançamento removido"),
+      onConfirm: () => {
+        state.transactions = state.transactions.filter((t) => t.id !== id);
+        saveState();
+        render();
+        toast("Lançamento removido");
+      },
     });
   }
+}
+
+// Apaga ocorrência(s) de uma série SEM que o ensureHorizon recrie:
+// "one" = só este mês (marca skip); "forward" = deste mês em diante (marca fim da série).
+function deleteSeriesOccurrence(item, mode) {
+  if (!state.seriesSkips) state.seriesSkips = {};
+  if (!state.seriesEnds) state.seriesEnds = {};
+  if (mode === "one") {
+    state.seriesSkips[`${item.seriesId}|${item.date.slice(0, 7)}`] = true;
+    state.transactions = state.transactions.filter((t) => t.id !== item.id);
+    toast("Lançamento removido");
+  } else {
+    state.seriesEnds[item.seriesId] = item.date;
+    state.transactions = state.transactions.filter(
+      (t) => !(t.seriesId === item.seriesId && t.date >= item.date),
+    );
+    toast("Removido deste mês em diante");
+  }
+  saveState();
+  render();
 }
 
 function handleDetailClick(event) {
@@ -1168,6 +1256,31 @@ function bindSwipe(container) {
   container.addEventListener("pointercancel", finish);
 }
 
+// Arrastar o hero de mês: esquerda = próximo mês, direita = mês anterior.
+function bindMonthSwipe(el) {
+  if (!el) return;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  el.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    startX = event.clientX;
+    startY = event.clientY;
+    tracking = true;
+  });
+  const finish = (event) => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      changeMonth(dx < 0 ? 1 : -1);
+    }
+  };
+  el.addEventListener("pointerup", finish);
+  el.addEventListener("pointercancel", () => { tracking = false; });
+}
+
 function bindEvents() {
   window.addEventListener("hashchange", route);
 
@@ -1180,6 +1293,7 @@ function bindEvents() {
 
   $("#prevMonth").addEventListener("click", () => changeMonth(-1));
   $("#nextMonth").addEventListener("click", () => changeMonth(1));
+  bindMonthSwipe($(".balance-card"));
   $("#detailPrevMonth").addEventListener("click", () => changeMonth(-1));
   $("#detailNextMonth").addEventListener("click", () => changeMonth(1));
   $("#detailBack").addEventListener("click", () => { location.hash = "#/"; });
@@ -1206,7 +1320,7 @@ function bindEvents() {
   $("#categoryCloseBtn").addEventListener("click", closeCategorySheet);
 
   // Cada backdrop fecha só o seu sheet (categoria abre por cima do formulário sem fechá-lo).
-  [["#entrySheet", closeEntrySheet], ["#chooserSheet", closeChooser], ["#confirmSheet", closeConfirm], ["#categorySheet", closeCategorySheet], ["#sortSheet", closeSortSheet]].forEach(([selector, close]) => {
+  [["#entrySheet", closeEntrySheet], ["#chooserSheet", closeChooser], ["#confirmSheet", closeConfirm], ["#categorySheet", closeCategorySheet], ["#sortSheet", closeSortSheet], ["#budgetSheet", closeBudgetSheet]].forEach(([selector, close]) => {
     const backdrop = $(selector);
     backdrop.addEventListener("click", (event) => {
       if (event.target === backdrop) close();
@@ -1217,6 +1331,7 @@ function bindEvents() {
     if (event.key !== "Escape") return;
     if (!$("#sortSheet").hidden) { closeSortSheet(); return; }
     if (!$("#categorySheet").hidden) { closeCategorySheet(); return; }
+    if (!$("#budgetSheet").hidden) { closeBudgetSheet(); return; }
     if (!$("#confirmSheet").hidden) { closeConfirm(); return; }
     closeEntrySheet();
     closeChooser();
@@ -1274,12 +1389,11 @@ function bindEvents() {
   $("#instMinus").addEventListener("click", () => setInstallments(entryInstallments - 1));
   $("#instPlus").addEventListener("click", () => setInstallments(entryInstallments + 1));
 
-  $("#confirmOkBtn").addEventListener("click", () => {
-    const action = confirmAction;
-    closeConfirm();
-    if (action) action();
+  $("#confirmActions").addEventListener("click", (event) => {
+    if (event.target.closest("[data-confirm-cancel]")) { closeConfirm(); return; }
+    const act = event.target.closest("[data-confirm-action]");
+    if (act) runConfirmAction(Number(act.dataset.confirmAction));
   });
-  $("#confirmCancelBtn").addEventListener("click", closeConfirm);
   $("#confirmCloseBtn").addEventListener("click", closeConfirm);
 
   $("#chooserSheet").addEventListener("click", (event) => {
@@ -1311,8 +1425,17 @@ function bindEvents() {
   $("#budgetList").addEventListener("click", (event) => {
     const edit = event.target.closest("[data-edit-category]");
     const remove = event.target.closest("[data-delete-category]");
-    if (edit) renameCategory(edit.dataset.editCategory);
+    if (edit) openBudgetSheet(edit.dataset.editCategory);
     if (remove) deleteCategory(remove.dataset.deleteCategory);
+  });
+
+  $("#budgetCloseBtn").addEventListener("click", closeBudgetSheet);
+  $("#budgetNoLimit").addEventListener("change", updateBudgetLimitState);
+  $("#budgetForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const oldName = $("#budgetOldName").value;
+    closeBudgetSheet();
+    saveCategory(oldName, $("#budgetName").value, $("#budgetNoLimit").checked, $("#budgetLimit").value);
   });
 
   $("#detailList").addEventListener("click", handleDetailClick);

@@ -96,6 +96,26 @@ a { color: inherit; text-decoration: none; }
 .month-switcher button:hover { background: rgba(255, 255, 255, .14); }
 .month-switcher strong { padding: 0 6px; text-align: center; font-size: .95rem; font-weight: 700; }
 
+/* Setas grandes de mês nas extremidades do hero (fáceis de tocar) + swipe */
+.balance-card .month-edge {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 104px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, .5);
+  font-size: 2.3rem;
+  line-height: 1;
+  z-index: 4;
+}
+.balance-card .month-edge.left { left: 2px; }
+.balance-card .month-edge.right { right: 2px; }
+.balance-card .month-edge:active { color: #fff; }
+
 .ghost-btn, .primary-btn, .text-btn {
   border: 0;
   font-weight: 760;
@@ -428,6 +448,28 @@ input:focus, select:focus {
 .field-label { color: #48584c; font-size: .76rem; font-weight: 700; }
 .recur-field, .inst-field { display: grid; gap: 8px; }
 .inst-field[hidden] { display: none; }
+.inst-field.is-disabled { opacity: .4; pointer-events: none; }
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: .92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.check-row input {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.budget-pct { color: var(--muted); font-weight: 800; }
+.budget-item.is-over .progress span { background: var(--red); }
+.budget-item.is-over .budget-pct { color: var(--red); }
 .recur-hint { margin: -2px 0 0; color: var(--muted); font-size: .74rem; }
 
 .stepper {

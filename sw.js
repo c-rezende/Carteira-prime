@@ -3,7 +3,7 @@
 // atualiza os arquivos em segundo plano; a nova versão vale na próxima abertura.
 // Os dados ficam no localStorage (fora do cache), então atualizar o código nunca apaga nada.
 
-const CACHE = "carteira-prime-v8";
+const CACHE = "carteira-prime-v11";
 const SHELL = [
   "./",
   "./index.html",
