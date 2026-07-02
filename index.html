@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#152218" />
     <title>Carteira Prime — Finanças pessoais</title>
@@ -97,19 +97,9 @@
 
           <div class="metric-grid" aria-label="Resumo financeiro">
             <article class="metric">
-              <span>Disponível</span>
-              <strong id="availableMetric">R$ 0,00</strong>
-              <small>Depois de gastos e reservas.</small>
-            </article>
-            <article class="metric">
               <span>Maior categoria</span>
               <strong id="topCategoryMetric">-</strong>
               <small id="topCategoryAmount">Sem saídas no mês.</small>
-            </article>
-            <article class="metric">
-              <span>Taxa de reserva</span>
-              <strong id="savingsRateMetric">0%</strong>
-              <small>Quanto das entradas virou reserva.</small>
             </article>
           </div>
 
@@ -141,28 +131,8 @@
                 <span class="kicker">Limites</span>
                 <h2 id="budgetTitle">Categorias do mês</h2>
               </div>
-              <button class="text-btn" id="resetSampleBtn" type="button">Zerar dados</button>
             </div>
             <div class="budget-list" id="budgetList"></div>
-          </section>
-
-          <section class="panel" aria-labelledby="transactionsTitle">
-            <div class="section-head inline">
-              <div>
-                <span class="kicker">Movimentos</span>
-                <h2 id="transactionsTitle">Lançamentos</h2>
-              </div>
-              <div class="filters">
-                <select id="typeFilter" aria-label="Filtrar por tipo">
-                  <option value="all">Todos</option>
-                  <option value="income">Entradas</option>
-                  <option value="expense">Saídas</option>
-                  <option value="saving">Reservas</option>
-                </select>
-                <input id="searchInput" type="search" placeholder="Buscar" aria-label="Buscar lançamento" />
-              </div>
-            </div>
-            <div class="transaction-list" id="transactionList"></div>
           </section>
 
           <section class="panel" aria-labelledby="backupTitle">

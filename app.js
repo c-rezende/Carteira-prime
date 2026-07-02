@@ -7,24 +7,24 @@ const importedData = globalThis.CARTEIRA_IMPORTED_DATA;
 
 const categories = {
   income: [
-    { name: "Salário", icon: "S", color: "#1f7a55", tint: "#dcefe5" },
-    { name: "Freelance", icon: "F", color: "#315b8d", tint: "#dfe8f2" },
-    { name: "Investimentos", icon: "I", color: "#8066a8", tint: "#ebe3f2" },
-    { name: "Outras entradas", icon: "+", color: "#64715c", tint: "#e6ebdf" },
+    { name: "Salário", icon: "S", color: "#12b76a", tint: "#daf6ea" },
+    { name: "Freelance", icon: "F", color: "#2e90fa", tint: "#e1eefd" },
+    { name: "Investimentos", icon: "I", color: "#7a5af8", tint: "#ece7fe" },
+    { name: "Outras entradas", icon: "+", color: "#06b6d4", tint: "#d5f4fa" },
   ],
   expense: [
-    { name: "Moradia", icon: "M", color: "#8b5d2f", tint: "#f0e4d5", budget: 2800 },
-    { name: "Mercado", icon: "G", color: "#ad3f3f", tint: "#f4dfdc", budget: 1600 },
-    { name: "Transporte", icon: "T", color: "#315b8d", tint: "#dfe8f2", budget: 650 },
-    { name: "Saúde", icon: "H", color: "#1f7a55", tint: "#dcefe5", budget: 700 },
-    { name: "Lazer", icon: "L", color: "#a56d22", tint: "#f3e7cf", budget: 900 },
-    { name: "Assinaturas", icon: "A", color: "#8066a8", tint: "#ebe3f2", budget: 320 },
-    { name: "Outras saídas", icon: "-", color: "#6d6f68", tint: "#e7e4dc", budget: 900 },
+    { name: "Moradia", icon: "M", color: "#f79009", tint: "#fdeccb", budget: 2800 },
+    { name: "Mercado", icon: "G", color: "#f0453e", tint: "#fde3e1", budget: 1600 },
+    { name: "Transporte", icon: "T", color: "#2e90fa", tint: "#e1eefd", budget: 650 },
+    { name: "Saúde", icon: "H", color: "#12b76a", tint: "#daf6ea", budget: 700 },
+    { name: "Lazer", icon: "L", color: "#ec4899", tint: "#fce4f2", budget: 900 },
+    { name: "Assinaturas", icon: "A", color: "#7a5af8", tint: "#ece7fe", budget: 320 },
+    { name: "Outras saídas", icon: "-", color: "#eab308", tint: "#fbf0c4", budget: 900 },
   ],
   saving: [
-    { name: "Reserva de emergência", icon: "R", color: "#a56d22", tint: "#f3e7cf" },
-    { name: "Investimento mensal", icon: "I", color: "#1f7a55", tint: "#dcefe5" },
-    { name: "Objetivo futuro", icon: "O", color: "#315b8d", tint: "#dfe8f2" },
+    { name: "Reserva de emergência", icon: "R", color: "#f79009", tint: "#fdeccb" },
+    { name: "Investimento mensal", icon: "I", color: "#12b76a", tint: "#daf6ea" },
+    { name: "Objetivo futuro", icon: "O", color: "#2e90fa", tint: "#e1eefd" },
   ],
 };
 
@@ -261,12 +261,14 @@ function getCategory(name, type = "expense") {
   const known = categories[type].find((item) => item.name === name);
   if (known) return known;
   const palette = [
-    { color: "#1f7a55", tint: "#dcefe5" },
-    { color: "#315b8d", tint: "#dfe8f2" },
-    { color: "#a56d22", tint: "#f3e7cf" },
-    { color: "#8066a8", tint: "#ebe3f2" },
-    { color: "#ad3f3f", tint: "#f4dfdc" },
-    { color: "#64715c", tint: "#e6ebdf" },
+    { color: "#7a5af8", tint: "#ece7fe" },
+    { color: "#2e90fa", tint: "#e1eefd" },
+    { color: "#12b76a", tint: "#daf6ea" },
+    { color: "#f79009", tint: "#fdeccb" },
+    { color: "#f0453e", tint: "#fde3e1" },
+    { color: "#ec4899", tint: "#fce4f2" },
+    { color: "#06b6d4", tint: "#d5f4fa" },
+    { color: "#eab308", tint: "#fbf0c4" },
   ];
   const index = Math.abs([...name].reduce((sum, char) => sum + char.charCodeAt(0), 0)) % palette.length;
   return {
@@ -452,8 +454,6 @@ function renderSummary() {
   $("#estimatedBalance").textContent = money(estimated);
   $("#incomeTotal").textContent = money(total.income);
   $("#expenseTotal").textContent = money(total.expense);
-  $("#availableMetric").textContent = money(estimated);
-  $("#savingsRateMetric").textContent = `${Math.round((total.saving / (total.income || 1)) * 100)}%`;
 
   const grouped = groupExpenses(monthItems);
   const top = grouped[0];
@@ -471,14 +471,16 @@ function renderReserve() {
 }
 
 function renderCategoryChart() {
-  const grouped = groupExpenses().slice(0, 5);
+  const grouped = groupExpenses(); // todas as categorias do mês
   const total = grouped.reduce((sum, item) => sum + item.total, 0);
   const donut = $("#categoryDonut");
   const legend = $("#categoryLegend");
 
   $("#chartTotal").textContent = money(total);
+  const centerLabel = `<span class="donut-center"><strong>${money(total)}</strong></span>`;
   if (!grouped.length || total <= 0) {
-    donut.style.background = "conic-gradient(#e3e7d8 0 100%)";
+    donut.style.background = "conic-gradient(var(--surface-2) 0 100%)";
+    donut.innerHTML = "";
     legend.innerHTML = `<p class="empty-inline">Sem despesas neste mês.</p>`;
     return;
   }
@@ -491,12 +493,15 @@ function renderCategoryChart() {
     return `${category.color} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
   });
   donut.style.background = `conic-gradient(${stops.join(", ")})`;
+  donut.innerHTML = centerLabel;
   legend.innerHTML = grouped.map((item) => {
     const category = getCategory(item.category, "expense");
+    const pct = Math.round((item.total / total) * 100);
     return `
       <div class="legend-item">
         <i style="background:${category.color}"></i>
-        <span>${escapeHtml(item.category)}</span>
+        <span class="legend-pct">${pct}%</span>
+        <span class="legend-name">${escapeHtml(item.category)}</span>
         <strong>${money(item.total)}</strong>
       </div>
     `;
@@ -883,25 +888,6 @@ function renderBudgets() {
   }).join("");
 }
 
-function renderTransactions() {
-  const query = $("#searchInput").value.trim().toLowerCase();
-  const type = $("#typeFilter").value;
-  const items = selectedTransactions()
-    .filter((item) => type === "all" || item.type === type)
-    .filter((item) => {
-      const text = `${item.description} ${item.category} ${item.note}`.toLowerCase();
-      return text.includes(query);
-    })
-    .sort((a, b) => b.date.localeCompare(a.date));
-
-  const list = $("#transactionList");
-  if (!items.length) {
-    list.innerHTML = `<p class="empty-state">Nenhum lançamento encontrado neste mês.</p>`;
-    return;
-  }
-  list.innerHTML = items.map((item) => transactionRow(item)).join("");
-}
-
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",
@@ -922,7 +908,6 @@ function render() {
   renderOverdue();
   renderAlerts();
   renderBudgets();
-  renderTransactions();
   renderDetail();
 }
 
@@ -956,6 +941,7 @@ function route() {
   render();
   const anchor = /^#[A-Za-z][\w-]*$/.test(location.hash) ? document.getElementById(location.hash.slice(1)) : null;
   if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+  else window.scrollTo({ top: 0 });
 }
 
 function entryTypeFor(viewType) {
@@ -1118,16 +1104,6 @@ function deleteTransaction(id) {
   }
 }
 
-function handleListClick(event) {
-  const editButton = event.target.closest("[data-edit]");
-  if (editButton) {
-    startTransactionEdit(editButton.dataset.edit);
-    return;
-  }
-  const button = event.target.closest("[data-delete]");
-  if (button) deleteTransaction(button.dataset.delete);
-}
-
 function handleDetailClick(event) {
   const payButton = event.target.closest("[data-pay]");
   if (payButton) {
@@ -1194,6 +1170,13 @@ function bindSwipe(container) {
 
 function bindEvents() {
   window.addEventListener("hashchange", route);
+
+  // "Principal" sempre leva pro topo da home (mesmo já estando nela).
+  $("#navHome").addEventListener("click", (event) => {
+    event.preventDefault();
+    if (location.hash && location.hash !== "#/") location.hash = "#/";
+    window.scrollTo({ top: 0 });
+  });
 
   $("#prevMonth").addEventListener("click", () => changeMonth(-1));
   $("#nextMonth").addEventListener("click", () => changeMonth(1));
@@ -1332,15 +1315,11 @@ function bindEvents() {
     if (remove) deleteCategory(remove.dataset.deleteCategory);
   });
 
-  $("#transactionList").addEventListener("click", handleListClick);
   $("#detailList").addEventListener("click", handleDetailClick);
   bindSwipe($("#detailList"));
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".entry-menu, .entry-actions-menu")) closeEntryMenus();
   });
-
-  $("#typeFilter").addEventListener("change", renderTransactions);
-  $("#searchInput").addEventListener("input", renderTransactions);
 
   $("#exportBtn").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
@@ -1367,22 +1346,6 @@ function bindEvents() {
     } finally {
       event.target.value = "";
     }
-  });
-
-  $("#resetSampleBtn").addEventListener("click", () => {
-    openConfirmDialog({
-      title: "Zerar todos os dados?",
-      desc: "Remove todos os lançamentos deste aparelho. Não dá para desfazer — exporte um backup antes.",
-      confirmLabel: "Zerar tudo",
-      danger: true,
-      onConfirm: () => {
-        state = { transactions: [] };
-        saveState();
-        selectedMonth = new Date();
-        render();
-        toast("Dados zerados");
-      },
-    });
   });
 }
 
