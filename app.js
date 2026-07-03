@@ -784,6 +784,10 @@ function sortComparator(sort) {
   if (sort === "paid") return (a, b) => paidRank(b) - paidRank(a) || byDate(a, b);
   if (sort === "asc") return (a, b) => Number(a.amount) - Number(b.amount);
   if (sort === "desc") return (a, b) => Number(b.amount) - Number(a.amount);
+  if (sort === "category") {
+    // Agrupa: mesma categoria fica junta; dentro dela, maior valor primeiro.
+    return (a, b) => a.category.localeCompare(b.category, "pt-BR") || Number(b.amount) - Number(a.amount);
+  }
   return (a, b) => paidRank(a) - paidRank(b) || byDate(a, b); // "unpaid" = não pagos primeiro
 }
 
@@ -795,6 +799,7 @@ function sortOptionList() {
     { key: "paid", label: `${paidWord} primeiro` },
     { key: "desc", label: "Maior valor" },
     { key: "asc", label: "Menor valor" },
+    { key: "category", label: "Agrupar por categoria" },
   ];
 }
 
@@ -815,6 +820,48 @@ function openSortSheet() {
 
 function closeSortSheet() {
   $("#sortSheet").hidden = true;
+  document.body.classList.remove("sheet-open");
+}
+
+// Popup do card de Orçamento: lista os lançamentos daquela categoria no mês selecionado.
+function openCatView(name) {
+  const category = getCategory(name, "expense");
+  const items = selectedTransactions()
+    .filter((item) => item.type === "expense" && item.category === name)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
+
+  $("#catViewTitle").textContent = category.name;
+  const monthLabel = capitalize(monthOnly.format(selectedMonth));
+  $("#catViewSub").textContent = items.length
+    ? `${items.length} lançamento${items.length === 1 ? "" : "s"} · ${money(total)} em ${monthLabel}`
+    : `Sem lançamentos em ${monthLabel}`;
+
+  const list = $("#catViewList");
+  list.innerHTML = items.length
+    ? items.map((item) => {
+        const date = shortDate.format(new Date(`${item.date}T12:00:00`));
+        const paid = item.status === "P";
+        const note = recurNote(item);
+        return `
+          <div class="cat-view-row${paid ? " is-paid" : ""}" style="--tone:${category.color}">
+            <span class="category-dot" aria-hidden="true">${category.icon}</span>
+            <div class="cat-view-info">
+              <strong>${escapeHtml(item.description)}</strong>
+              <span>${date}${note ? ` · ${note}` : ""}${paid ? " · Pago" : ""}</span>
+            </div>
+            <span class="cat-view-amount">-${format(item.amount)}</span>
+          </div>
+        `;
+      }).join("")
+    : `<div class="cat-view-empty">Nada lançado nesta categoria neste mês.</div>`;
+
+  $("#catViewSheet").hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closeCatView() {
+  $("#catViewSheet").hidden = true;
   document.body.classList.remove("sheet-open");
 }
 
@@ -839,30 +886,6 @@ function renderDetail() {
   $("#detailPending").textContent = money(pendingValue);
   $("#detailPaid").textContent = overdueView ? String(items.length) : money(paidValue);
 
-  const breakdown = $("#detailBreakdown");
-  if (detailType === "cards" && items.length) {
-    const byCard = new Map();
-    items.forEach((item) => {
-      byCard.set(item.category, (byCard.get(item.category) || 0) + Number(item.amount));
-    });
-    breakdown.hidden = false;
-    breakdown.innerHTML = [...byCard.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, total]) => {
-        const category = getCategory(name, "expense");
-        return `
-          <div class="breakdown-item" style="--tone:${category.color}; --tint:${category.tint}">
-            <span class="category-dot" aria-hidden="true">${category.icon}</span>
-            <span class="breakdown-name">${escapeHtml(name)}</span>
-            <strong>${money(total)}</strong>
-          </div>
-        `;
-      }).join("");
-  } else {
-    breakdown.hidden = true;
-    breakdown.innerHTML = "";
-  }
-
   const list = $("#detailList");
   if (!items.length) {
     list.innerHTML = `
@@ -874,7 +897,24 @@ function renderDetail() {
     `;
     return;
   }
-  list.innerHTML = items.map((item) => detailCard(item, overdueView ? "expense" : detailType)).join("");
+  const labelType = overdueView ? "expense" : detailType;
+  if (detailSort === "category") {
+    let lastCategory = null;
+    list.innerHTML = items.map((item) => {
+      let header = "";
+      if (item.category !== lastCategory) {
+        lastCategory = item.category;
+        const groupTotal = items
+          .filter((one) => one.category === item.category)
+          .reduce((sum, one) => sum + Number(one.amount), 0);
+        const cat = getCategory(item.category, item.type);
+        header = `<div class="entry-group" style="--tone:${cat.color}"><span>${escapeHtml(item.category)}</span><span>${money(groupTotal)}</span></div>`;
+      }
+      return header + detailCard(item, labelType);
+    }).join("");
+    return;
+  }
+  list.innerHTML = items.map((item) => detailCard(item, labelType)).join("");
 }
 
 function groupExpenses(items = selectedTransactions()) {
@@ -907,7 +947,7 @@ function renderBudgets() {
     const pct = budget > 0 ? Math.round((spent / budget) * 100) : null;
     const over = budget > 0 && spent > budget;
     return `
-      <article class="budget-item${over ? " is-over" : ""}" style="--tone:${category.color}; --tint:${category.tint}; --progress:${progress}%">
+      <article class="budget-item${over ? " is-over" : ""}" data-view-category="${escapeHtml(category.name)}" role="button" tabindex="0" aria-label="Ver lançamentos de ${escapeHtml(category.name)}" style="--tone:${category.color}; --tint:${category.tint}; --progress:${progress}%">
         <span class="category-dot" aria-hidden="true">${category.icon}</span>
         <div class="budget-main">
           <strong>${escapeHtml(category.name)}</strong>
@@ -1324,6 +1364,15 @@ function bindEvents() {
     renderDetail();
     closeSortSheet();
   });
+  $("#sortClearBtn").addEventListener("click", () => {
+    detailSort = "unpaid";
+    renderDetail();
+    closeSortSheet();
+  });
+  $("#catViewCloseBtn").addEventListener("click", closeCatView);
+  $("#catViewSheet").addEventListener("click", (event) => {
+    if (event.target === $("#catViewSheet")) closeCatView();
+  });
 
   $("#navAddBtn").addEventListener("click", () => {
     if (detailType) {
@@ -1347,6 +1396,7 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (!$("#catViewSheet").hidden) { closeCatView(); return; }
     if (!$("#sortSheet").hidden) { closeSortSheet(); return; }
     if (!$("#categorySheet").hidden) { closeCategorySheet(); return; }
     if (!$("#budgetSheet").hidden) { closeBudgetSheet(); return; }
@@ -1443,8 +1493,17 @@ function bindEvents() {
   $("#budgetList").addEventListener("click", (event) => {
     const edit = event.target.closest("[data-edit-category]");
     const remove = event.target.closest("[data-delete-category]");
-    if (edit) openBudgetSheet(edit.dataset.editCategory);
-    if (remove) deleteCategory(remove.dataset.deleteCategory);
+    if (edit) { openBudgetSheet(edit.dataset.editCategory); return; }
+    if (remove) { deleteCategory(remove.dataset.deleteCategory); return; }
+    const open = event.target.closest("[data-view-category]");
+    if (open) openCatView(open.dataset.viewCategory);
+  });
+  $("#budgetList").addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const open = event.target.closest("[data-view-category]");
+    if (!open || event.target.closest("button")) return;
+    event.preventDefault();
+    openCatView(open.dataset.viewCategory);
   });
 
   $("#addCategoryBtn").addEventListener("click", () => openBudgetSheet());

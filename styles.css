@@ -1402,6 +1402,45 @@ body.detail-mode .app-shell { padding-top: 0; }
 .sort-option .sort-check { color: var(--accent); font-weight: 800; opacity: 0; }
 .sort-option.is-selected { border-color: var(--accent); background: var(--accent-soft); }
 .sort-option.is-selected .sort-check { opacity: 1; }
+.sort-clear { margin-top: 10px; width: 100%; }
+
+/* Cabeçalho de grupo (ordenação "Agrupar por categoria") */
+.entry-group {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 4px 2px;
+  color: var(--tone, var(--muted));
+  font-weight: 800;
+  font-size: .82rem;
+}
+.entry-group span:last-child { color: var(--ink); }
+.entry-list > .entry-group:first-child { margin-top: 2px; }
+
+/* Popup de lançamentos de uma categoria (card de Orçamento) */
+.budget-item[role="button"] { cursor: pointer; }
+.budget-item[role="button"]:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.cat-view-sub { margin: -4px 0 12px; color: var(--muted); font-size: .82rem; }
+.cat-view-list { display: grid; gap: 8px; max-height: 52vh; overflow-y: auto; }
+.cat-view-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.cat-view-row.is-paid { opacity: .5; }
+.cat-view-row .category-dot { width: 40px; height: 40px; font-size: .82rem; }
+.cat-view-info { min-width: 0; }
+.cat-view-info strong { display: block; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-view-info span { display: block; margin-top: 2px; color: var(--muted); font-size: .74rem; }
+.cat-view-amount { font-weight: 800; color: var(--red); white-space: nowrap; }
+.cat-view-empty { padding: 24px 8px; text-align: center; color: var(--muted); font-size: .85rem; }
 
 .detail-title {
   justify-self: center;
