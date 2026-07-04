@@ -99,6 +99,10 @@ let selectedMonth = new Date();
 let selectedType = "income";
 let detailType = null;
 let valuesHidden = false;
+// Gráfico de balanço/projeção (home): ano visto + meses marcados para somar a projeção.
+let balanceYear = new Date().getFullYear();
+let balanceSelection = null; // Set de "YYYY-MM"; inicializa no primeiro render (mês atual → dez).
+let balanceIncludeReserve = false; // modo "somar reservas" no balanço/projeção.
 let state = loadState();
 saveState();
 
@@ -164,8 +168,8 @@ function buildOccurrences(base, recurrence, installments) {
 }
 
 // Contas fixas são "perpétuas": materializa novas ocorrências conforme o usuário navega para frente.
-function ensureHorizon() {
-  const targetKey = monthKey(selectedMonth);
+function ensureHorizon(target = selectedMonth) {
+  const targetKey = monthKey(target);
   const ends = state.seriesEnds || {};
   const skips = state.seriesSkips || {};
   const latest = new Map();
@@ -460,11 +464,6 @@ function renderSummary() {
   $("#estimatedBalance").textContent = money(estimated);
   $("#incomeTotal").textContent = money(total.income);
   $("#expenseTotal").textContent = money(total.expense);
-
-  const grouped = groupExpenses(monthItems);
-  const top = grouped[0];
-  $("#topCategoryMetric").textContent = top ? top.category : "-";
-  $("#topCategoryAmount").textContent = top ? `${money(top.total)} no mês` : "Sem saídas no mês.";
 }
 
 function renderReserve() {
@@ -512,6 +511,149 @@ function renderCategoryChart() {
       </div>
     `;
   }).join("");
+}
+
+// --- Gráfico de balanço / projeção acumulada (home) ---
+const MES_ABBR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+function balKey(year, monthIndex) {
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+}
+
+function currentMonthKey() {
+  const now = new Date();
+  return balKey(now.getFullYear(), now.getMonth());
+}
+
+// Seleção padrão: mês atual até dezembro do ano atual.
+function defaultBalanceSelection() {
+  const now = new Date();
+  const set = new Set();
+  for (let m = now.getMonth(); m <= 11; m += 1) set.add(balKey(now.getFullYear(), m));
+  return set;
+}
+
+// N meses a partir do mês atual (pode atravessar o ano).
+function rangeFromNow(months) {
+  const now = new Date();
+  const set = new Set();
+  for (let i = 0; i < months; i += 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    set.add(balKey(d.getFullYear(), d.getMonth()));
+  }
+  return set;
+}
+
+function sameSet(a, b) {
+  if (!a || a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
+}
+
+function keyShort(key) {
+  const [y, m] = key.split("-");
+  return `${MES_ABBR[Number(m) - 1]}/${y.slice(2)}`;
+}
+
+// Totais por mês (receitas, despesas, reservas). Reservas só entram no net no modo "somar reservas".
+function balanceNetByKey() {
+  const map = new Map();
+  state.transactions.forEach((item) => {
+    const key = item.date.slice(0, 7);
+    const entry = map.get(key) || { income: 0, expense: 0, saving: 0 };
+    if (item.type === "income") entry.income += Number(item.amount);
+    else if (item.type === "expense") entry.expense += Number(item.amount);
+    else if (item.type === "saving") entry.saving += Number(item.amount);
+    map.set(key, entry);
+  });
+  return map;
+}
+
+function renderBalanceChart() {
+  if (!balanceSelection) balanceSelection = defaultBalanceSelection();
+
+  // Estende as contas fixas até o fim do ano visto (e até o último mês marcado, se for além).
+  const selectedKeys = [...balanceSelection].sort();
+  const lastShown = balKey(balanceYear, 11);
+  const lastSel = selectedKeys.length ? selectedKeys[selectedKeys.length - 1] : lastShown;
+  const target = lastSel > lastShown ? lastSel : lastShown;
+  ensureHorizon(new Date(Number(target.slice(0, 4)), Number(target.slice(5, 7)) - 1, 1));
+
+  const net = balanceNetByKey();
+  const netOf = (key) => {
+    const entry = net.get(key);
+    if (!entry) return 0;
+    return entry.income - entry.expense + (balanceIncludeReserve ? entry.saving : 0);
+  };
+  const currentKey = currentMonthKey();
+
+  // 12 barras do ano visto.
+  const values = [];
+  let maxAbs = 0;
+  for (let m = 0; m < 12; m += 1) {
+    const key = balKey(balanceYear, m);
+    const value = netOf(key);
+    values.push({ key, value, month: m });
+    maxAbs = Math.max(maxAbs, Math.abs(value));
+  }
+
+  $("#balanceYear").textContent = balanceYear;
+  $("#balanceBars").innerHTML = values.map(({ key, value, month }) => {
+    const selected = balanceSelection.has(key);
+    const isCurrent = key === currentKey;
+    const height = maxAbs > 0 ? Math.max(4, Math.round((Math.abs(value) / maxAbs) * 100)) : 4;
+    const cls = [
+      "balance-bar",
+      value < 0 ? "is-neg" : "is-pos",
+      selected ? "is-on" : "is-off",
+      isCurrent ? "is-current" : "",
+    ].filter(Boolean).join(" ");
+    const label = value !== 0 && !valuesHidden ? compactBRL(value) : "";
+    return `
+      <button type="button" class="${cls}" data-bal-month="${key}" aria-pressed="${selected}" aria-label="${MES_ABBR[month]} ${balanceYear}: ${format(value)}${selected ? ", marcado" : ""}">
+        <span class="bal-val">${label}</span>
+        <span class="bal-track"><i style="height:${height}%"></i></span>
+        <span class="bal-mon">${MES_ABBR[month]}</span>
+      </button>
+    `;
+  }).join("");
+
+  // Chips ativos.
+  const presets = { "3": rangeFromNow(3), "6": rangeFromNow(6), "12": rangeFromNow(12), dez: defaultBalanceSelection() };
+  $$("#balanceChips [data-bal-preset]").forEach((chip) => {
+    chip.classList.toggle("is-active", sameSet(balanceSelection, presets[chip.dataset.balPreset]));
+  });
+
+  // Projeção acumulada das barras marcadas.
+  const acc = selectedKeys.reduce((sum, key) => sum + netOf(key), 0);
+  const count = selectedKeys.length;
+  const accEl = $("#balanceAccum");
+  accEl.textContent = money(acc);
+  accEl.classList.toggle("is-neg", acc < 0);
+  const withReserve = balanceIncludeReserve ? " + reservas" : "";
+  $("#balanceAccumLabel").textContent = (acc < 0 ? "Déficit acumulado" : "Sobra acumulada") + withReserve;
+  const reserveToggle = $("#balanceReserveToggle");
+  if (reserveToggle) {
+    reserveToggle.classList.toggle("is-on", balanceIncludeReserve);
+    reserveToggle.setAttribute("aria-pressed", String(balanceIncludeReserve));
+  }
+  if (count) {
+    const avg = acc / count;
+    $("#balanceRange").textContent = `${keyShort(selectedKeys[0])} → ${keyShort(selectedKeys[count - 1])} · ${count} ${count === 1 ? "mês" : "meses"} · média ${format(avg)}/mês`;
+  } else {
+    $("#balanceRange").textContent = "Toque nos meses para somar o período.";
+  }
+}
+
+// Valor curto para o topo da coluna: "1,5k", "-980", "12k".
+function compactBRL(value) {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1000) {
+    const k = abs / 1000;
+    return `${sign}${k.toFixed(k >= 10 ? 0 : 1).replace(".", ",")}k`;
+  }
+  return `${sign}${Math.round(abs)}`;
 }
 
 function renderAlerts() {
@@ -980,6 +1122,7 @@ function render() {
   ensureHorizon();
   setMonthLabel();
   renderSummary();
+  renderBalanceChart();
   renderCategoryChart();
   renderCards();
   renderReserve();
@@ -1339,6 +1482,37 @@ function bindMonthSwipe(el) {
   el.addEventListener("pointercancel", () => { tracking = false; });
 }
 
+// Swipe horizontal genérico: chama cb(+1) ao arrastar p/ esquerda, cb(-1) p/ direita.
+// Engole o clique seguinte quando houve arrasto (evita marcar coluna sem querer).
+function bindHorizontalSwipe(el, cb) {
+  if (!el) return;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  let suppress = false;
+  el.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    startX = event.clientX;
+    startY = event.clientY;
+    tracking = true;
+  });
+  const finish = (event) => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      suppress = true;
+      cb(dx < 0 ? 1 : -1);
+    }
+  };
+  el.addEventListener("pointerup", finish);
+  el.addEventListener("pointercancel", () => { tracking = false; });
+  el.addEventListener("click", (event) => {
+    if (suppress) { event.stopPropagation(); event.preventDefault(); suppress = false; }
+  }, true);
+}
+
 function bindEvents() {
   window.addEventListener("hashchange", route);
 
@@ -1352,6 +1526,33 @@ function bindEvents() {
   $("#prevMonth").addEventListener("click", () => changeMonth(-1));
   $("#nextMonth").addEventListener("click", () => changeMonth(1));
   bindMonthSwipe($(".balance-card"));
+
+  // Gráfico de balanço: navegação por ano, marcar/desmarcar colunas e chips de período.
+  const changeBalanceYear = (offset) => { balanceYear += offset; renderBalanceChart(); };
+  $("#balancePrevYear").addEventListener("click", () => changeBalanceYear(-1));
+  $("#balanceNextYear").addEventListener("click", () => changeBalanceYear(1));
+  bindHorizontalSwipe($("#balanceBars"), (dir) => changeBalanceYear(dir));
+  $("#balanceBars").addEventListener("click", (event) => {
+    const bar = event.target.closest("[data-bal-month]");
+    if (!bar) return;
+    const key = bar.dataset.balMonth;
+    if (balanceSelection.has(key)) balanceSelection.delete(key);
+    else balanceSelection.add(key);
+    renderBalanceChart();
+  });
+  $("#balanceReserveToggle").addEventListener("click", () => {
+    balanceIncludeReserve = !balanceIncludeReserve;
+    renderBalanceChart();
+  });
+  $("#balanceChips").addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-bal-preset]");
+    if (!chip) return;
+    const preset = chip.dataset.balPreset;
+    balanceSelection = preset === "dez" ? defaultBalanceSelection()
+      : rangeFromNow(Number(preset));
+    balanceYear = new Date().getFullYear();
+    renderBalanceChart();
+  });
   $("#detailPrevMonth").addEventListener("click", () => changeMonth(-1));
   $("#detailNextMonth").addEventListener("click", () => changeMonth(1));
   $("#detailBack").addEventListener("click", () => { location.hash = "#/"; });

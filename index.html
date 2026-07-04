@@ -92,13 +92,35 @@
             </div>
           </a>
 
-          <div class="metric-grid" aria-label="Resumo financeiro">
-            <article class="metric">
-              <span>Maior categoria</span>
-              <strong id="topCategoryMetric">-</strong>
-              <small id="topCategoryAmount">Sem saídas no mês.</small>
-            </article>
-          </div>
+          <section class="panel balance-panel" aria-labelledby="balanceTitle">
+            <div class="section-head inline">
+              <div>
+                <span class="kicker">Projeção</span>
+                <h2 id="balanceTitle">Balanço por mês</h2>
+              </div>
+              <div class="year-nav">
+                <button class="year-arrow" id="balancePrevYear" type="button" aria-label="Ano anterior">‹</button>
+                <strong id="balanceYear">2026</strong>
+                <button class="year-arrow" id="balanceNextYear" type="button" aria-label="Próximo ano">›</button>
+              </div>
+            </div>
+            <div class="balance-bars" id="balanceBars" role="group" aria-label="Balanço mês a mês — toque para somar"></div>
+            <button type="button" class="reserve-toggle" id="balanceReserveToggle" aria-pressed="false">
+              <span class="switch" aria-hidden="true"><i></i></span>
+              <span>Incluir reservas no período</span>
+            </button>
+            <div class="balance-chips" id="balanceChips">
+              <button type="button" class="chip" data-bal-preset="3">3 meses</button>
+              <button type="button" class="chip" data-bal-preset="6">6 meses</button>
+              <button type="button" class="chip" data-bal-preset="12">12 meses</button>
+              <button type="button" class="chip" data-bal-preset="dez">Até dez</button>
+            </div>
+            <div class="balance-summary">
+              <small id="balanceAccumLabel">Sobra acumulada</small>
+              <strong id="balanceAccum">R$ 0,00</strong>
+              <span id="balanceRange"></span>
+            </div>
+          </section>
 
           <section class="panel insights-panel" aria-labelledby="insightsTitle">
             <div class="section-head inline">

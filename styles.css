@@ -704,6 +704,186 @@ input:focus, select:focus {
 
 .panel { padding: 20px; box-shadow: var(--shadow); }
 
+/* --- Balanço por mês / projeção --- */
+.balance-panel { background: var(--surface); }
+
+.year-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.year-nav strong { font-size: .95rem; min-width: 3ch; text-align: center; }
+.year-arrow {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.balance-bars {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  margin-top: 16px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.balance-bar {
+  flex: 1 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.bal-val {
+  font-size: .5rem;
+  font-weight: 800;
+  color: var(--muted);
+  white-space: nowrap;
+  line-height: 1;
+  min-height: .6em;
+}
+.bal-track {
+  display: flex;
+  align-items: flex-end;
+  width: 68%;
+  height: 92px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.bal-track i {
+  display: block;
+  width: 100%;
+  border-radius: 7px;
+  transition: height .18s ease;
+}
+.balance-bar.is-pos .bal-track i { background: var(--green); }
+.balance-bar.is-neg .bal-track i { background: var(--red); }
+.bal-mon {
+  font-size: .6rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+/* Não marcada: esmaecida. Marcada: cheia, com destaque no rótulo do mês. */
+.balance-bar.is-off { opacity: .32; }
+.balance-bar.is-on .bal-mon { color: var(--ink); }
+.balance-bar.is-on.is-pos .bal-val { color: var(--green); }
+.balance-bar.is-on.is-neg .bal-val { color: var(--red); }
+.balance-bar.is-current .bal-mon {
+  color: var(--brand);
+  position: relative;
+}
+.balance-bar.is-current .bal-mon::after {
+  content: "";
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin: 2px auto 0;
+  border-radius: 50%;
+  background: var(--brand);
+}
+.balance-bar:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+
+.reserve-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.reserve-toggle .switch {
+  flex: none;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  transition: background .16s ease;
+}
+.reserve-toggle .switch i {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 2px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20, 20, 40, .25);
+  transition: transform .16s ease;
+}
+.reserve-toggle.is-on { color: var(--ink); }
+.reserve-toggle.is-on .switch { background: var(--blue); border-color: var(--blue); }
+.reserve-toggle.is-on .switch i { transform: translateX(16px); }
+.reserve-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+
+.balance-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  overflow-x: auto;
+}
+.balance-chips .chip {
+  flex: 0 0 auto;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.balance-chips .chip.is-active {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.balance-summary {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 2px;
+}
+.balance-summary small {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.balance-summary #balanceAccum {
+  font-size: 1.7rem;
+  color: var(--green);
+  line-height: 1.1;
+}
+.balance-summary #balanceAccum.is-neg { color: var(--red); }
+.balance-summary #balanceRange {
+  font-size: .76rem;
+  color: var(--muted);
+}
+
 .insights-panel {
   background: var(--surface);
 }
