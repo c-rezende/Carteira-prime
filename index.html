@@ -155,6 +155,7 @@
             <div class="budget-list" id="budgetList"></div>
           </section>
 
+
           <section class="panel" aria-labelledby="backupTitle">
             <div class="section-head">
               <span class="kicker">Backup</span>
@@ -215,6 +216,14 @@
       </div>
     </main>
 
+    <div class="selection-bar" id="selectionBar" hidden>
+      <button class="selection-clear" id="selectionClear" type="button" aria-label="Limpar seleção">×</button>
+      <div class="selection-info">
+        <strong id="selectionCount">0 selecionadas</strong>
+        <span id="selectionTotal">R$ 0,00</span>
+      </div>
+    </div>
+
     <nav class="bottom-nav" aria-label="Navegação do app">
       <a class="active" id="navHome" href="#/">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3.5 21 11" /><path d="M5.5 9.8V20.5h13V9.8" /></svg>
@@ -229,10 +238,10 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V3.5" /><path d="M6 4.5h11.5l-2.6 3.75 2.6 3.75H6" /></svg>
         Planejamento
       </a>
-      <a href="#insightsTitle">
+      <button class="nav-btn" id="navMore" type="button" aria-haspopup="dialog">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
         Mais
-      </a>
+      </button>
     </nav>
 
     <div class="sheet-backdrop" id="entrySheet" hidden>
@@ -349,6 +358,70 @@
         <p class="confirm-desc" id="confirmDesc">Confira os dados antes de marcar como pago.</p>
         <div class="confirm-detail" id="confirmDetail"></div>
         <div class="form-actions confirm-actions" id="confirmActions"></div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop" id="billReminderSheet" hidden>
+      <div class="sheet reminder-sheet" role="dialog" aria-modal="true" aria-labelledby="billReminderTitle">
+        <span class="reminder-emoji" aria-hidden="true">🔔</span>
+        <h2 id="billReminderTitle">Contas a pagar este mês</h2>
+        <p class="reminder-text" id="billReminderText"></p>
+        <div class="form-actions">
+          <button class="primary-btn" id="billReminderView" type="button">Ver contas a pagar</button>
+          <button class="secondary-btn" id="billReminderClose" type="button">Agora não</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop" id="settingsSheet" hidden>
+      <div class="sheet settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settingsSheetTitle">
+        <div class="sheet-head">
+          <h2 id="settingsSheetTitle">Configurações</h2>
+          <button class="sheet-close" id="settingsCloseBtn" type="button" aria-label="Fechar">×</button>
+        </div>
+
+        <div class="settings-group">
+          <span class="settings-label">Lembrete de contas</span>
+          <div class="setting-row">
+            <div class="setting-copy">
+              <strong>Lembrar a partir do dia</strong>
+              <small>Todo mês, a partir desse dia, o app avisa se há contas em aberto.</small>
+            </div>
+            <div class="stepper">
+              <button type="button" id="reminderDayMinus" aria-label="Diminuir o dia do lembrete">−</button>
+              <strong id="reminderDayValue">12</strong>
+              <button type="button" id="reminderDayPlus" aria-label="Aumentar o dia do lembrete">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <span class="settings-label">Lembrete diário de lançamentos</span>
+          <button type="button" class="reminder-toggle" id="logReminderToggle" aria-pressed="false">
+            <span class="switch" aria-hidden="true"><i></i></span>
+            <span>Me lembrar de registrar todo dia</span>
+          </button>
+          <div class="setting-row" id="logReminderTimeRow" hidden>
+            <div class="setting-copy">
+              <strong>Horário</strong>
+              <small>Nesse horário, um lembrete pra lançar entradas e saídas do dia.</small>
+            </div>
+            <input type="time" id="logReminderTime" class="time-input" value="21:00" aria-label="Horário do lembrete diário" />
+          </div>
+          <p class="settings-note" id="logReminderNote" hidden>O aviso aparece quando você abre o app. Um alerta na tela de bloqueio com o app fechado exigiria um servidor (ainda não temos).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-backdrop" id="logReminderSheet" hidden>
+      <div class="sheet reminder-sheet" role="dialog" aria-modal="true" aria-labelledby="logReminderTitle">
+        <span class="reminder-emoji" aria-hidden="true">📝</span>
+        <h2 id="logReminderTitle">Lançou tudo de hoje?</h2>
+        <p class="reminder-text">Registre as entradas e saídas do dia pra manter a carteira em dia.</p>
+        <div class="form-actions">
+          <button class="primary-btn" id="logReminderAdd" type="button">Adicionar lançamento</button>
+          <button class="secondary-btn" id="logReminderClose" type="button">Agora não</button>
+        </div>
       </div>
     </div>
 

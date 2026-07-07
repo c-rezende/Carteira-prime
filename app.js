@@ -103,6 +103,10 @@ let valuesHidden = false;
 let balanceYear = new Date().getFullYear();
 let balanceSelection = null; // Set de "YYYY-MM"; inicializa no primeiro render (mês atual → dez).
 let balanceIncludeReserve = false; // modo "somar reservas" no balanço/projeção.
+// Seleção múltipla nas telas de detalhe (clicar e segurar para começar).
+let selectMode = false;
+let selectedIds = new Set();
+let justLongPressed = false; // engole o clique que segue o long-press.
 let state = loadState();
 saveState();
 
@@ -740,8 +744,9 @@ function detailCard(item, labelType) {
   const paid = item.status === "P";
   const undoLabel = statusLabel(labelType, false);
   const extra = recurNote(item);
+  const selected = selectMode && selectedIds.has(item.id);
   return `
-    <article class="entry-card${paid ? " is-paid" : ""}" data-id="${item.id}" style="--tone:${category.color}; --tint:${category.tint}">
+    <article class="entry-card${paid ? " is-paid" : ""}${selected ? " is-selected" : ""}" data-id="${item.id}" style="--tone:${category.color}; --tint:${category.tint}">
       <div class="entry-swipe">
         <button class="entry-behind" type="button" data-pay="${item.id}" tabindex="-1" aria-hidden="true">
           <span>${paid ? undoLabel : statusLabel(labelType, true)}</span>
@@ -1129,7 +1134,157 @@ function render() {
   renderOverdue();
   renderAlerts();
   renderBudgets();
+  renderReminderDay();
   renderDetail();
+}
+
+// --- Lembrete de contas a pagar (in-app; dia configurável nos ajustes; 1x por dia) ---
+const BILL_REMINDER_DAY = 12; // padrão; Carlos pode mudar nos ajustes.
+const REMINDER_DAY_MIN = 1;
+const REMINDER_DAY_MAX = 28;
+
+// Dia escolhido pelo usuário (limitado 1–28), com fallback pro padrão.
+function reminderDay() {
+  const stored = Number(state.billReminderDay);
+  if (!Number.isFinite(stored)) return BILL_REMINDER_DAY;
+  return Math.min(REMINDER_DAY_MAX, Math.max(REMINDER_DAY_MIN, stored));
+}
+
+function isoDay(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+// Despesas não pagas do mês corrente (mês real, não o mês selecionado na navegação).
+function unpaidThisMonth(now = new Date()) {
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return state.transactions.filter(
+    (item) => item.type === "expense" && item.status !== "P" && item.date.slice(0, 7) === key,
+  );
+}
+
+// Deve lembrar? A partir do dia configurado, se há contas em aberto e ainda não lembrei hoje.
+function shouldRemindBills(now = new Date()) {
+  if (now.getDate() < reminderDay()) return false;
+  if (state.lastBillReminder === isoDay(now)) return false;
+  return unpaidThisMonth(now).length > 0;
+}
+
+// Reflete o dia do lembrete no stepper dos ajustes.
+function renderReminderDay() {
+  const el = $("#reminderDayValue");
+  if (el) el.textContent = reminderDay();
+}
+
+function setReminderDay(value) {
+  state.billReminderDay = Math.min(REMINDER_DAY_MAX, Math.max(REMINDER_DAY_MIN, value));
+  saveState();
+  renderReminderDay();
+}
+
+function openBillReminder(count, total) {
+  $("#billReminderText").textContent =
+    `Você tem ${count} conta${count === 1 ? "" : "s"} em aberto este mês (${format(total)}) que ainda não ${count === 1 ? "foi paga" : "foram pagas"}.`;
+  $("#billReminderSheet").hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closeBillReminder() {
+  $("#billReminderSheet").hidden = true;
+  document.body.classList.remove("sheet-open");
+}
+
+// Menu de configurações (botão "Mais" da bottom-nav).
+function openSettings() {
+  renderReminderDay();
+  renderLogReminderSettings();
+  $("#settingsSheet").hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closeSettings() {
+  $("#settingsSheet").hidden = true;
+  document.body.classList.remove("sheet-open");
+}
+
+// --- Lembrete diário de lançamentos (horário configurável) ---
+function logReminderConfig() {
+  const cfg = state.logReminder || {};
+  return { enabled: Boolean(cfg.enabled), time: cfg.time || "21:00" };
+}
+
+function nowHHMM(now = new Date()) {
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
+function renderLogReminderSettings() {
+  const cfg = logReminderConfig();
+  const toggle = $("#logReminderToggle");
+  if (!toggle) return;
+  toggle.classList.toggle("is-on", cfg.enabled);
+  toggle.setAttribute("aria-pressed", String(cfg.enabled));
+  $("#logReminderTimeRow").hidden = !cfg.enabled;
+  $("#logReminderNote").hidden = !cfg.enabled;
+  $("#logReminderTime").value = cfg.time;
+}
+
+function setLogReminder(patch) {
+  state.logReminder = { ...logReminderConfig(), ...patch };
+  saveState();
+  renderLogReminderSettings();
+}
+
+// Aviso de sistema (best-effort): só dispara se a permissão já foi concedida.
+function notifyDailyLog() {
+  try {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    navigator.serviceWorker?.ready.then((reg) => {
+      reg.showNotification("Carteira Prime", {
+        body: "Não esqueça de lançar as entradas e saídas de hoje 📝",
+        icon: "./icon-192.png",
+        badge: "./icon-192.png",
+        tag: "log-reminder",
+      });
+    }).catch(() => {});
+  } catch {}
+}
+
+function shouldRemindLog(now = new Date()) {
+  const cfg = logReminderConfig();
+  if (!cfg.enabled) return false;
+  if (nowHHMM(now) < cfg.time) return false;
+  return state.lastLogReminder !== isoDay(now);
+}
+
+function openLogReminder() {
+  $("#logReminderSheet").hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closeLogReminder() {
+  $("#logReminderSheet").hidden = true;
+  document.body.classList.remove("sheet-open");
+}
+
+function maybeShowLogReminder() {
+  if (document.body.classList.contains("sheet-open")) return;
+  const now = new Date();
+  if (!shouldRemindLog(now)) return;
+  state.lastLogReminder = isoDay(now);
+  saveState();
+  notifyDailyLog();
+  openLogReminder();
+}
+
+function maybeShowBillReminder() {
+  // Não empilhar sobre outro sheet nem sobre uma tela de detalhe aberta.
+  if (document.body.classList.contains("sheet-open")) return;
+  const now = new Date();
+  if (!shouldRemindBills(now)) return;
+  const bills = unpaidThisMonth(now);
+  const total = bills.reduce((sum, item) => sum + Number(item.amount), 0);
+  state.lastBillReminder = isoDay(now);
+  saveState();
+  openBillReminder(bills.length, total);
 }
 
 function toast(message) {
@@ -1146,6 +1301,8 @@ function changeMonth(offset) {
 }
 
 function route() {
+  // Trocar de tela zera a seleção múltipla.
+  if (selectMode) { selectMode = false; selectedIds.clear(); updateSelectionBar(); }
   const type = routes[location.hash] || null;
   detailType = type;
   document.body.dataset.section = type || "home";
@@ -1393,7 +1550,56 @@ function deleteSeriesOccurrence(item, mode) {
   render();
 }
 
+// --- Seleção múltipla (clicar e segurar) ---
+function enterSelectMode(id) {
+  selectMode = true;
+  selectedIds = new Set([id]);
+  renderDetail();
+  updateSelectionBar();
+}
+
+function toggleSelect(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  if (selectedIds.size === 0) { exitSelectMode(); return; }
+  renderDetail();
+  updateSelectionBar();
+}
+
+function exitSelectMode() {
+  if (!selectMode) return;
+  selectMode = false;
+  selectedIds.clear();
+  renderDetail();
+  updateSelectionBar();
+}
+
+function updateSelectionBar() {
+  const bar = $("#selectionBar");
+  if (!bar) return;
+  if (!selectMode || selectedIds.size === 0) {
+    bar.hidden = true;
+    document.body.classList.remove("select-mode");
+    return;
+  }
+  const total = [...selectedIds].reduce((sum, id) => {
+    const item = state.transactions.find((one) => one.id === id);
+    return sum + (item ? Number(item.amount) : 0);
+  }, 0);
+  $("#selectionCount").textContent = `${selectedIds.size} selecionada${selectedIds.size === 1 ? "" : "s"}`;
+  $("#selectionTotal").textContent = money(total);
+  bar.hidden = false;
+  document.body.classList.add("select-mode");
+}
+
 function handleDetailClick(event) {
+  // No modo seleção, tocar em qualquer card marca/desmarca (ignora pagar/menu).
+  if (justLongPressed) { justLongPressed = false; return; }
+  if (selectMode) {
+    const card = event.target.closest(".entry-card");
+    if (card) toggleSelect(card.dataset.id);
+    return;
+  }
   const payButton = event.target.closest("[data-pay]");
   if (payButton) {
     closeEntryMenus();
@@ -1423,12 +1629,26 @@ function handleDetailClick(event) {
 
 function bindSwipe(container) {
   let active = null;
+  let pressTimer = null;
+  const clearPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
 
   container.addEventListener("pointerdown", (event) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    justLongPressed = false; // novo toque: descarta flag pendente de um long-press sem clique.
     const face = event.target.closest(".entry-face");
     if (!face || event.target.closest(".pay-pill, .entry-menu, .entry-actions-menu")) return;
     const card = face.closest(".entry-card");
+    // Clicar e segurar: entra no modo seleção (só quando ainda não está nele).
+    if (!selectMode) {
+      clearPress();
+      pressTimer = setTimeout(() => {
+        pressTimer = null;
+        active = null; // cancela o swipe em andamento
+        justLongPressed = true;
+        enterSelectMode(card.dataset.id);
+      }, 480);
+    }
+    if (selectMode) return; // no modo seleção, tocar marca/desmarca (via click), sem swipe
     active = { face, card, startX: event.clientX, dx: 0, width: card.offsetWidth, moved: false };
     face.style.transition = "none";
     face.setPointerCapture?.(event.pointerId);
@@ -1440,11 +1660,12 @@ function bindSwipe(container) {
     const paid = active.card.classList.contains("is-paid");
     dx = paid ? Math.min(Math.max(dx, 0), active.width) : Math.max(Math.min(dx, 0), -active.width);
     active.dx = dx;
-    if (Math.abs(dx) > 4) active.moved = true;
+    if (Math.abs(dx) > 4) { active.moved = true; clearPress(); } // arrastou → não é long-press
     active.face.style.transform = `translateX(${dx}px)`;
   });
 
   const finish = () => {
+    clearPress();
     if (!active) return;
     const { face, card, dx, width } = active;
     active = null;
@@ -1544,6 +1765,43 @@ function bindEvents() {
     balanceIncludeReserve = !balanceIncludeReserve;
     renderBalanceChart();
   });
+
+  // Menu de configurações.
+  $("#navMore").addEventListener("click", openSettings);
+  $("#settingsCloseBtn").addEventListener("click", closeSettings);
+
+  // Lembrete diário de lançamentos.
+  $("#logReminderToggle").addEventListener("click", () => {
+    const nextEnabled = !logReminderConfig().enabled;
+    setLogReminder({ enabled: nextEnabled });
+    // Ao ativar, pede permissão de notificação (best-effort; não bloqueia).
+    if (nextEnabled && "Notification" in window && Notification.permission === "default") {
+      try { Notification.requestPermission().catch(() => {}); } catch {}
+    }
+  });
+  $("#logReminderTime").addEventListener("change", (event) => {
+    if (event.target.value) setLogReminder({ time: event.target.value });
+  });
+  $("#logReminderClose").addEventListener("click", closeLogReminder);
+  $("#logReminderAdd").addEventListener("click", () => { closeLogReminder(); openChooser(); });
+
+  // Ajuste do dia do lembrete.
+  $("#reminderDayMinus").addEventListener("click", () => setReminderDay(reminderDay() - 1));
+  $("#reminderDayPlus").addEventListener("click", () => setReminderDay(reminderDay() + 1));
+
+  // Lembrete de contas a pagar.
+  $("#billReminderClose").addEventListener("click", closeBillReminder);
+  $("#billReminderView").addEventListener("click", () => {
+    closeBillReminder();
+    selectedMonth = new Date(); // garante que a tela mostre o mês corrente.
+    location.hash = "#/despesas";
+  });
+  // Relembra ao voltar o foco pro app (reabrir aba/app), respeitando o "1x por dia".
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    maybeShowBillReminder();
+    maybeShowLogReminder();
+  });
   $("#balanceChips").addEventListener("click", (event) => {
     const chip = event.target.closest("[data-bal-preset]");
     if (!chip) return;
@@ -1588,7 +1846,7 @@ function bindEvents() {
   $("#categoryCloseBtn").addEventListener("click", closeCategorySheet);
 
   // Cada backdrop fecha só o seu sheet (categoria abre por cima do formulário sem fechá-lo).
-  [["#entrySheet", closeEntrySheet], ["#chooserSheet", closeChooser], ["#confirmSheet", closeConfirm], ["#categorySheet", closeCategorySheet], ["#sortSheet", closeSortSheet], ["#budgetSheet", closeBudgetSheet]].forEach(([selector, close]) => {
+  [["#entrySheet", closeEntrySheet], ["#chooserSheet", closeChooser], ["#confirmSheet", closeConfirm], ["#categorySheet", closeCategorySheet], ["#sortSheet", closeSortSheet], ["#budgetSheet", closeBudgetSheet], ["#billReminderSheet", closeBillReminder], ["#settingsSheet", closeSettings], ["#logReminderSheet", closeLogReminder]].forEach(([selector, close]) => {
     const backdrop = $(selector);
     backdrop.addEventListener("click", (event) => {
       if (event.target === backdrop) close();
@@ -1597,6 +1855,9 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    if (!$("#logReminderSheet").hidden) { closeLogReminder(); return; }
+    if (!$("#settingsSheet").hidden) { closeSettings(); return; }
+    if (!$("#billReminderSheet").hidden) { closeBillReminder(); return; }
     if (!$("#catViewSheet").hidden) { closeCatView(); return; }
     if (!$("#sortSheet").hidden) { closeSortSheet(); return; }
     if (!$("#categorySheet").hidden) { closeCategorySheet(); return; }
@@ -1718,6 +1979,7 @@ function bindEvents() {
   });
 
   $("#detailList").addEventListener("click", handleDetailClick);
+  $("#selectionClear").addEventListener("click", exitSelectMode);
   bindSwipe($("#detailList"));
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".entry-menu, .entry-actions-menu")) closeEntryMenus();
@@ -1753,3 +2015,5 @@ function bindEvents() {
 
 bindEvents();
 route();
+maybeShowBillReminder();
+maybeShowLogReminder();

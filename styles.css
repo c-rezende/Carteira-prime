@@ -515,7 +515,54 @@ input:focus, select:focus {
 .stepper strong { min-width: 1.6em; text-align: center; font-size: 1.05rem; }
 .stepper span { color: var(--muted); }
 
+.settings-sheet { display: grid; gap: 18px; max-height: 78vh; overflow-y: auto; }
+.settings-group { display: grid; gap: 12px; }
+.settings-label {
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: space-between;
+}
+.setting-copy { flex: 1 1 auto; min-width: 0; }
+.setting-copy strong { display: block; font-size: .9rem; }
+.setting-copy small { display: block; margin-top: 3px; color: var(--muted); font-size: .76rem; line-height: 1.4; }
+.setting-row .stepper { flex: none; }
+.setting-row[hidden] { display: none; }
+
+.time-input {
+  flex: 0 0 auto;
+  width: 116px;
+  min-height: 42px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 700;
+}
+.settings-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: .74rem;
+  line-height: 1.45;
+}
+.settings-note[hidden] { display: none; }
+
 .confirm-desc { margin: 0 0 14px; color: var(--muted); }
+
+/* Lembrete de contas a pagar */
+.reminder-sheet { text-align: center; }
+.reminder-emoji { display: block; font-size: 2.2rem; margin-bottom: 6px; }
+.reminder-sheet h2 { margin: 0 0 8px; }
+.reminder-text { margin: 0 0 18px; color: var(--muted); line-height: 1.5; }
 .confirm-detail {
   display: grid;
   gap: 4px;
@@ -799,7 +846,7 @@ input:focus, select:focus {
 }
 .balance-bar:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
 
-.reserve-toggle {
+.reserve-toggle, .reminder-toggle {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -812,7 +859,8 @@ input:focus, select:focus {
   font-weight: 700;
   cursor: pointer;
 }
-.reserve-toggle .switch {
+.reminder-toggle { margin-top: 0; }
+.reserve-toggle .switch, .reminder-toggle .switch {
   flex: none;
   width: 38px;
   height: 22px;
@@ -821,7 +869,7 @@ input:focus, select:focus {
   border: 1px solid var(--line);
   transition: background .16s ease;
 }
-.reserve-toggle .switch i {
+.reserve-toggle .switch i, .reminder-toggle .switch i {
   display: block;
   width: 16px;
   height: 16px;
@@ -831,10 +879,10 @@ input:focus, select:focus {
   box-shadow: 0 1px 2px rgba(20, 20, 40, .25);
   transition: transform .16s ease;
 }
-.reserve-toggle.is-on { color: var(--ink); }
-.reserve-toggle.is-on .switch { background: var(--blue); border-color: var(--blue); }
-.reserve-toggle.is-on .switch i { transform: translateX(16px); }
-.reserve-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+.reserve-toggle.is-on, .reminder-toggle.is-on { color: var(--ink); }
+.reserve-toggle.is-on .switch, .reminder-toggle.is-on .switch { background: var(--blue); border-color: var(--blue); }
+.reserve-toggle.is-on .switch i, .reminder-toggle.is-on .switch i { transform: translateX(16px); }
+.reserve-toggle:focus-visible, .reminder-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
 
 .balance-chips {
   display: flex;
@@ -1164,7 +1212,8 @@ input:focus, select:focus {
   backdrop-filter: blur(18px);
 }
 
-.bottom-nav a {
+.bottom-nav a,
+.bottom-nav .nav-btn {
   display: grid;
   justify-items: center;
   gap: 4px;
@@ -1175,6 +1224,7 @@ input:focus, select:focus {
   font-weight: 740;
   text-align: center;
 }
+.bottom-nav .nav-btn { border: 0; background: none; cursor: pointer; }
 
 .bottom-nav svg {
   width: 21px;
@@ -1401,6 +1451,61 @@ body.detail-mode .app-shell { padding-top: 0; }
 }
 
 .entry-card:has(.entry-actions-menu:not([hidden])) { z-index: 5; }
+
+/* Seleção múltipla (clicar e segurar) */
+.entry-card.is-selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+.entry-card.is-selected::after {
+  content: "✓";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 800;
+}
+/* No modo seleção, o card vira alvo de toque: esconde pagar/menu pra não confundir. */
+body.select-mode .entry-controls { visibility: hidden; }
+
+.selection-bar {
+  position: fixed;
+  z-index: 31;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(84px + var(--safe-bottom));
+  width: min(560px, calc(100% - 28px));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  border-radius: 16px;
+  background: var(--ink);
+  color: #fff;
+}
+.selection-bar[hidden] { display: none; }
+.selection-clear {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.selection-info { display: flex; flex-direction: column; line-height: 1.2; }
+.selection-info strong { font-size: .74rem; font-weight: 700; opacity: .75; }
+.selection-info span { font-size: 1.15rem; font-weight: 850; }
 
 .entry-swipe {
   position: relative;
